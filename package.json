@@ -1,7 +1,6 @@
 {
-  "name": "field-photo-manager",
-  "version": "85.0.0",
-  "private": true,
+  "name": "photo",
+  "version": "1.0.0",
   "dependencies": {
     "@capacitor/core": "^7.0.0",
     "@capacitor/android": "^7.0.0"
