@@ -1,4 +1,3 @@
-
 name: Android APK
 
 on:
@@ -8,13 +7,35 @@ on:
 
 jobs:
   build:
+
     runs-on: ubuntu-latest
 
     steps:
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
-      - run: npm install
+      - name: Install Dependencies
+        run: |
+          npm install
+          npm install -g @capacitor/cli
+
+      - name: Add Android Platform
+        run: |
+          npx cap add android || true
+          npx cap sync android
+
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: 현장사진관리-APK
+          path: android/app/build/outputs/apk/debug/*.apk
