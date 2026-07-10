@@ -1,7 +1,10 @@
+
 name: Android APK
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   build:
@@ -15,14 +18,3 @@ jobs:
           node-version: 20
 
       - run: npm install
-
-      - run: npm install -g @capacitor/cli
-
-      - run: npx cap add android || true
-
-      - run: npx cap sync android
-
-      - run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
