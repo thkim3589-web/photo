@@ -1,6 +1,5 @@
 {
-  "appId": "com.thkim.photo",
-  "appName": "현장사진관리 Pro",
-  "webDir": ".",
-  "bundledWebRuntime": false
+  "appId": "com.photo.app",
+  "appName": "photo",
+  "webDir": "www"
 }
