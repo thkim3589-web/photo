@@ -442,8 +442,28 @@ for(let r=4; r<=6; r++){
     
     
     
-    saveAs(new Blob([excelBuffer]), `${manageNo}_지중 표시기 보강 작업_현장 작업사진.xlsx`);
-    alert("엑셀 저장 완료\n\n" + `${manageNo}_지중 표시기 보강 작업_현장 작업사진.xlsx` + "\n\nDownload 폴더에 저장되었습니다.");
+    
+const blob = new Blob([excelBuffer],{
+  type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+});
+
+const fileName = `${manageNo}_지중 표시기 보강 작업_현장 작업사진.xlsx`;
+
+const url = window.URL.createObjectURL(blob);
+
+const a = document.createElement("a");
+a.href = url;
+a.download = fileName;
+
+document.body.appendChild(a);
+a.click();
+
+setTimeout(()=>{
+  window.URL.revokeObjectURL(url);
+  a.remove();
+},3000);
+
+    alert("엑셀 생성 완료\n\n"+fileName+"\n\n내파일 → Download 폴더를 확인하세요.");
 });
 
 });
