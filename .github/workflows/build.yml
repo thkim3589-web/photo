@@ -1,4 +1,4 @@
-name: Build APK
+name: Android APK
 
 on:
   workflow_dispatch:
@@ -8,28 +8,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install
-        run: npm install
+      - run: npm install
 
-      - name: Install Capacitor
-        run: npm install -g @capacitor/cli
+      - run: npm install -g @capacitor/cli
 
-      - name: Add Android
-        run: npx cap add android || true
+      - run: npx cap add android || true
 
-      - name: Sync Android
-        run: npx cap sync android
+      - run: npx cap sync android
 
-      - name: Build APK
-        run: |
+      - run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
