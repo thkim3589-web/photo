@@ -1,0 +1,14 @@
+{
+  "name": "photo-app",
+  "version": "1.0.0",
+  "description": "현장사진관리 APK",
+  "main": "index.js",
+  "private": true,
+  "scripts": {
+    "build": "echo Build Complete"
+  },
+  "dependencies": {
+    "@capacitor/core": "^7.4.2",
+    "@capacitor/android": "^7.4.2"
+  }
+}
