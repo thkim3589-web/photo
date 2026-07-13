@@ -230,6 +230,23 @@ async function compressImageForExcel(src){
 }
 </script>
 
+
+<script>
+function showLoading(msg){
+ let div=document.getElementById("loadingLayer");
+ if(!div){
+   div=document.createElement("div");
+   div.id="loadingLayer";
+   div.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:99999;display:flex;justify-content:center;align-items:center;color:#fff;font-size:18px;font-weight:bold;text-align:center;white-space:pre-line;";
+   document.body.appendChild(div);
+ }
+ div.textContent=msg;
+}
+function hideLoading(){
+ document.getElementById("loadingLayer")?.remove();
+}
+</script>
+
 </head>
 <script>
 
@@ -690,7 +707,7 @@ reader.onload=function(e){
         const ctx=canvas.getContext("2d");
         ctx.drawImage(source,0,0,canvas.width,canvas.height);
 
-        const compressedBase64=canvas.toDataURL("image/jpeg",0.55);
+        const compressedBase64=canvas.toDataURL("image/jpeg",0.50);
 
         img.src=compressedBase64;
         card.dataset.base64=compressedBase64;
@@ -1582,44 +1599,60 @@ window.addEventListener("load",()=>{
 
 
 <script>
+
 window.addEventListener("load",function(){
 
-  const btn=document.getElementById("mailShareBtn");
-  const excelBtn=document.getElementById("excelSaveBtn");
+ const btn=document.getElementById("mailShareBtn");
+ if(!btn) return;
 
-  if(!btn || !excelBtn) return;
+ btn.onclick=async function(){
 
-  btn.onclick=async function(){
+   try{
 
-    try{
+      const buffer = await generateExcelBlob();
 
-      excelBtn.click();
+      const manageNo =
+        document.getElementById("manageNo")?.value.trim() || "현장사진";
 
-      setTimeout(async ()=>{
+      const fileName =
+        `${manageNo}_지중 표시기 보강 작업_현장 작업사진.xlsx`;
 
-        const manageNo=document.getElementById("manageNo")?.value.trim()||"";
-
-        if(navigator.share){
-          try{
-            await navigator.share({
-              title:"현장사진관리",
-              text:`관리번호 : ${manageNo}
-엑셀파일이 다운로드 폴더에 저장되었습니다.`
-            });
-          }catch(e){}
+      const file = new File(
+        [buffer],
+        fileName,
+        {
+          type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         }
+      );
 
-      },1500);
+      if(
+        navigator.canShare &&
+        navigator.canShare({files:[file]})
+      ){
 
-    }catch(err){
-      console.error(err);
-      alert("공유 처리 중 오류가 발생했습니다.");
-    }
+        await navigator.share({
+          files:[file],
+          title:"현장사진관리",
+          text:"현장 작업 사진입니다."
+        });
 
-  };
+      }else{
+
+        alert("파일 공유를 지원하지 않습니다. generateExcelBlob 적용 후 저장 기능을 사용하세요.");
+
+      }
+
+   }catch(err){
+
+      alert("공유 준비 중 오류 : " + err.message);
+
+   }
+
+ };
 
 });
 </script>
+
 
 
 <script>
