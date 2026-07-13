@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html lang="ko">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<head>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><style>
+*{
+    box-sizing:border-box;
+    -webkit-tap-highlight-color:transparent;
+}
+
+html,body{
+    margin:0;
+    padding:0;
+    background:#f4f6f9;
+    font-family:Pretendard,sans-serif;
+}
+
+.app-container{
+    width:100%;
+    max-width:100%;
+    min-height:100vh;
+    padding:10px;
+    border-radius:0;
+}
+
+.btn-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+}
+
+.btn{
+    min-height:26px;
+    font-size:13px;
+    font-weight:700;
+    touch-action:manipulation;
+}
+
+#manageNo,
+#managerName{
+    width:100%;
+    min-height:44px;
+    font-size:15px;
+}
+
+.material-row{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:8px;
+}
+
+.material-row input{
+    width:60px;
+    height:34px;
+    font-size:15px;
+    text-align:center;
+}
+
+.gallery-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:6px;
+}
+
+.photo-card{
+    position:relative;
+    border:1px solid #ddd;
+    border-radius:8px;
+    overflow:hidden;
+    background:#fff;
+}
+
+.photo-card img{
+    width:100%;
+    aspect-ratio:1/1;
+    object-fit:cover;
+}
+
+.photo-check{
+    width:14px;
+    height:14px;
+    position:absolute;
+    top:4px;
+    left:4px;
+}
+
+@media (max-width:480px){
+
+    .gallery-grid{
+        grid-template-columns:repeat(3,1fr);
+    }
+
+    .btn{
+        min-height:28px;
+        font-size:13px;
+    }
+
+    .header{
+        flex-direction:column;
+        gap:8px;
+        align-items:flex-start;
+    }
+
+    .material-row{
+        grid-template-columns:1fr;
+    }
+}
+</style>
+
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: 'Pretendard', sans-serif; background-color: #f4f6f9; display: flex; justify-content: center; padding: 20px; }
+        .app-container { width:100%; max-width:none; background: #ffffff; padding: 15px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        
+        /* 헤더 */
+        .header { background: #003399; color: white; padding: 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        
+        /* 현장 정보 */
+        .site-info { background:#eef2f8; padding:2px; border-radius:10px; border:1px solid #d1d9e6; margin-bottom:8px; }
+        
+        /* 자재 관리 */
+        .material-box { border: 1px solid #d1d9e6; padding: 8px; border-radius: 10px; margin-bottom: 10px; }
+        .material-row { display:flex; flex-wrap:nowrap; gap:4px; margin-bottom:1px; font-weight:bold; align-items:center; }
+        
+        /* 버튼 그리드 */
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .btn { padding: 6px; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .bg-blue { background: #0056b3; }
+        .bg-green { background: #28a745; }
+        .bg-purple { background: #6f42c1; }
+        .bg-gray { background: #6c757d; }
+        .bg-red { background: #dc3545; }
+        
+        /* 갤러리 */
+        .gallery-title { margin-top: 20px; font-weight: bold; }
+        .gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px;
+    min-height:130px; }
+        .photo-card { position:relative;border:1px solid #ddd;border-radius:8px;padding:5px;text-align:center;font-size:11px;} .photo-check{position:absolute;top:2px;left:2px;transform:scale(0.8);}
+    </style>
+
+<style>
+#closeZoomBtn{
+ position:absolute;
+ top:15px;
+ right:15px;
+ z-index:10000;
+ font-size:24px;
+ background:#fff;
+ border:none;
+ border-radius:8px;
+ padding:4px 10px;
+}
+</style>
+
+
+
+
+
+
+
+
+
+<style>
+.photo-memo{display:none !important;}
+input[placeholder="사진 메모"]{display:none !important;}
+
+.gallery-section{
+    width:400px;
+    max-width:400px;
+    margin:15px auto 0 auto;
+    padding:12px;
+    background:#f8f9fa;
+    border:2px solid #d1d9e6;
+    border-radius:12px;
+}
+.gallery-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    background:#003399;
+    color:#fff;
+    padding:8px 12px;
+    border-radius:8px;
+    margin-bottom:10px;
+    font-weight:700;
+}
+.gallery-badge{
+    font-size:12px;
+    background:#0d6efd;
+    padding:4px 8px;
+    border-radius:12px;
+}
+
+</style>
+
+
+<!-- V73.0 최적화 통합판 생성 : 중복코드 정리 및 경량화 준비 -->
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#003399">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+
+<script>
+async function compressImageForExcel(src){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const canvas=document.createElement('canvas');
+      const maxWidth=1280;
+      const ratio=Math.min(1,maxWidth/img.width);
+      canvas.width=img.width*ratio;
+      canvas.height=img.height*ratio;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      canvas.toBlob(blob=>{
+        if(blob) resolve(blob);
+        else reject(new Error('압축 실패'));
+      },'image/jpeg',0.55);
+    };
+    img.onerror=reject;
+    img.src=src;
+  });
+}
+</script>
+
+</head>
+<script>
+
+document.addEventListener("DOMContentLoaded",()=>{
+
+const manager=document.getElementById("managerName");
+const manage=document.getElementById("manageNo");
+const current=document.getElementById("currentManageNo");
+
+manager.value=localStorage.getItem("managerName")||"김태호";
+manage.value=localStorage.getItem("manageNo")||"";
+
+function save(){
+
+
+
+localStorage.setItem("manageNo",manage.value);
+
+current.innerHTML=
+
+manage.value.trim()
+
+?
+
+"현재 관리번호 : "+manage.value
+
+:
+
+"현재 관리번호 : 미입력";
+
+}
+
+manager.addEventListener("input",save);
+
+manage.addEventListener("input",save);
+
+save();
+
+});
+
+</script>
+
+<script>
+
+document.addEventListener("DOMContentLoaded",()=>{
+
+const manage=document.getElementById("manageNo");
+
+const buttons=document.querySelectorAll(".btn");
+
+function update(){
+const ok=manage.value.trim()!=="";
+buttons.forEach(btn=>{
+    if(btn.id==="backupBtn" || btn.id==="restoreBtn"){
+        btn.disabled=false;
+        btn.style.opacity="1";
+        return;
+    }
+    btn.disabled=!ok;
+    btn.style.opacity=ok?"1":"0.4";
+});
+
+const fabCamera=document.getElementById("fabCamera");
+if(fabCamera){
+    fabCamera.disabled=!ok;
+    fabCamera.style.opacity=ok?"1":"0.4";
+    fabCamera.style.pointerEvents=ok?"auto":"none";
+}
+}
+manage.addEventListener("input",update);
+update();
+});
+
+</script>
+
+<script>
+
+
+
+
+
+
+
+
+document.addEventListener("DOMContentLoaded",()=>{
+
+document.getElementById("excelSaveBtn").addEventListener("click", async () => {
+
+    
+
+    if(typeof ExcelJS==="undefined"){
+      alert("ExcelJS 로드 실패");
+      return;
+    }
+
+    if(typeof saveAs==="undefined"){
+      alert("FileSaver 로드 실패");
+      return;
+    }
+
+    
+
+    const manageNo = document.getElementById("manageNo").value.trim();
+    const managerName = document.getElementById("managerName").value.trim();
+    const cards = [...document.querySelectorAll("#galleryGrid .photo-card")];
+
+    if (!manageNo) { alert("관리번호를 입력하세요."); return; }
+    if (cards.length === 0) { alert("사진이 없습니다."); return; }
+
+    const workbook = new ExcelJS.Workbook();
+    const sheetName = "사진첩";
+    const photoSheet = workbook.addWorksheet(sheetName);
+
+    const borderStyle = {
+        top:{style:'thin'},left:{style:'thin'},
+        bottom:{style:'thin'},right:{style:'thin'}
+    };
+    const centerAlign = { vertical:'middle', horizontal:'center', wrapText:true };
+    const headerFill = { type:'pattern', pattern:'solid', fgColor:{argb:'FF003399'} };
+    const tipFill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFFFF2CC'} };
+
+    const maxPhotoNum = cards.length;
+    const columns = [
+        { key:'gis_id', width:20 },
+        { key:'site_qty', width:12 }
+    ];
+
+    for(let i=1;i<=maxPhotoNum;i++){
+        columns.push({ key:`p${i}`, width:25 });
+    }
+
+    photoSheet.columns = columns;
+
+    photoSheet.mergeCells(1,1,1,columns.length);
+    photoSheet.getCell(1,1).value="통신시설물 현장 사진 관리 대장";
+    photoSheet.getCell(1,1).font={size:20,bold:true,color:{argb:'FF003399'}};
+    photoSheet.getCell(1,1).alignment=centerAlign;
+
+    photoSheet.mergeCells(2,1,2,columns.length);
+    photoSheet.getCell(2,1).value=`👤 담당자 : ${managerName}`;
+
+    photoSheet.mergeCells(3,1,3,columns.length);
+    photoSheet.getCell(3,1).value="💡 사진 등재 요령 : 표시기 및 스티커 시공 사진은 주변 배경 건물이 잘 보이도록 촬영 필요. 1번 사진은 시작 맨홀과 전경을 함께 촬영";
+    photoSheet.getCell(3,1).fill=tipFill;
+
+    photoSheet.getCell(4,1).value="GIS 정보";
+    photoSheet.getCell(4,2).value="현장 정보";
+    photoSheet.getCell(4,3).value="작업사진";
+
+    if(maxPhotoNum>1){
+        photoSheet.mergeCells(4,3,4,columns.length);
+    }
+
+    photoSheet.getCell(5,1).value="SK관리번호";
+    photoSheet.getCell(5,2).value="사진수량";
+
+    for(let i=1;i<=maxPhotoNum;i++){
+        photoSheet.getCell(5,2+i).value=String(i);
+    }
+
+    const totalQty = cards.length;
+
+    const row = photoSheet.addRow({
+        gis_id:manageNo,
+        site_qty:totalQty
+    });
+
+    row.height=150;
+    for(let c=3;c<=columns.length;c++){
+        photoSheet.getColumn(c).width=25;
+    }
+
+    
+
+const imageTasks = cards.map(async (card,i)=>{
+    try{
+        const base64 = card.dataset.base64;
+        if(!base64) return;
+
+        const imageId = workbook.addImage({
+            base64: base64,
+            extension: "jpeg"
+        });
+
+        photoSheet.addImage(imageId,{
+            tl:{col:2+i,row:5},
+            br:{col:3+i,row:6}
+        });
+    }catch(e){
+        console.error("사진 삽입 실패",e);
+    }
+});
+
+await Promise.all(imageTasks);
+
+
+
+// V72.6 사진영역 전체 테두리 적용
+const lastPhotoCol = 2 + maxPhotoNum;
+
+for(let r=4; r<=6; r++){
+    for(let c=1; c<=lastPhotoCol; c++){
+        const cell = photoSheet.getCell(r,c);
+        cell.border = {
+            top:{style:'thin'},
+            left:{style:'thin'},
+            bottom:{style:'thin'},
+            right:{style:'thin'}
+        };
+    }
+}
+
+        
+    photoSheet.getRow(6).eachCell(cell=>{
+        cell.border={
+            top:{style:'thin'},
+            left:{style:'thin'},
+            bottom:{style:'thin'},
+            right:{style:'thin'}
+        };
+    });
+
+
+    workbook.eachSheet((sheet)=>{
+      if(typeof applyV691Style==='function'){
+        applyV691Style(sheet);
+      }
+    });
+
+    
+    if(typeof applyV692PrintStyle==='function'){
+      applyV692PrintStyle(workbook);
+    }
+    
+    photoSheet.getCell("A2").alignment = {
+      vertical:'middle',
+      horizontal:'left'
+    };
+
+    photoSheet.getCell("A3").alignment = {
+      vertical:'middle',
+      horizontal:'left',
+      wrapText:true
+    };
+
+    
+    photoSheet.getCell("A2").alignment={vertical:'middle',horizontal:'left'};
+    photoSheet.getCell("A2").font={bold:true,size:12};
+    photoSheet.getRow(2).height=24;
+
+    photoSheet.getCell("A3").alignment={vertical:'middle',horizontal:'left',wrapText:true};
+    photoSheet.getRow(3).height=40;
+
+    await buildMaterialSheetV70(workbook, manageNo, managerName);
+    const excelBuffer = await workbook.xlsx.writeBuffer();
+    
+    
+    
+    
+const blob = new Blob([excelBuffer],{
+  type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+});
+
+const fileName = `${manageNo}_지중 표시기 보강 작업_현장 작업사진.xlsx`;
+
+try{
+  
+
+
+
+
+try{
+  saveAs(blob,fileName);
+  
+}catch(e){
+  alert("saveAs 오류\n\n" + e.message);
+}
+
+
+
+}catch(err){
+  alert('엑셀 저장 오류 : '+err.message);
+  console.error(err);
+}
+
+});
+
+});
+</script>
+
+
+
+
+
+
+
+
+<body>
+<script></script>
+
+<div class="app-container">
+    
+<div class="header" style="position:relative;background:#003399;height:90px;border-radius:12px;margin-bottom:15px;">
+<div style="position:absolute;left:15px;top:12px;color:white;font-size:25px;font-weight:700;">현장사진관리</div>
+<div style="position:absolute;right:15px;bottom:10px;color:white;font-size:14px;font-weight:700;">
+👤 담당자 :
+<input type="text" id="managerName" value="김태호" maxlength="6"
+style="width:90px;border:none;background:transparent;color:white;font-weight:700;outline:none;">
+</div>
+</div>
+
+    
+<div class="material-box" style="margin-bottom:8px;">
+    <div style="font-size:16px;font-weight:bold;margin-bottom:5px;">📋 관리번호</div>
+    <input type="text" id="manageNo" value=""
+           placeholder="관리번호 입력"
+           style="width:100%;height:40px;font-size:16px;font-weight:bold;text-align:center;border:1px solid #ccc;border-radius:8px;">
+    <div id="currentManageNo" style="margin-top:6px;font-weight:bold;color:#003399;">
+        관리번호 : 달서구CD12345
+    </div>
+</div>
+
+<div class="material-box">
+        <div style="margin-bottom: 10px; font-weight: bold; font-size:18px;">자재 수량 관리</div>
+        <div class="material-row">
+<span style='font-size:10px'>기설합:</span><input type="number" id="oldBox" value="0" style="background:#fff3cd;font-weight:bold;width:30px;height:15px;font-size:12px;" min="0" inputmode="numeric" style="width:24px;height:14px;text-align:center;font-size:9px;">
+<span style='font-size:9px'>🔨 못:</span><input type="number" id="oldNail" value="0" min="0" inputmode="numeric" style="width:24px;height:14px;text-align:center;font-size:9px;">
+<span style='font-size:9px'>🟠 스티커:</span><input type="number" id="oldSticker" value="0" min="0" inputmode="numeric" style="width:24px;height:14px;text-align:center;font-size:9px;">
+</div>
+<div class="material-row">
+<span style='font-size:10px'>신설합:</span><input type="number" id="newBox" value="0" style="background:#d4edda;font-weight:bold;width:30px;height:15px;font-size:12px;" min="0" inputmode="numeric" style="width:24px;height:14px;text-align:center;font-size:9px;">
+<span style='font-size:9px'>🔧 못:</span><input type="number" id="newNail" value="0" min="0" inputmode="numeric" style="width:24px;height:14px;text-align:center;font-size:9px;">
+<span style='font-size:9px'>⚪ 스티커:</span><input type="number" id="newSticker" value="0" min="0" inputmode="numeric" style="width:24px;height:14px;text-align:center;font-size:9px;">
+<span style='font-size:9px'>횡단:</span><input type="number" id="crossing" value="0" min="0" inputmode="numeric" style="width:24px;height:14px;text-align:center;font-size:9px;">
+<span style='font-size:9px'>🥫 락카:</span><input type="number" id="lacquer" value="0" min="0" inputmode="numeric" style="width:24px;height:14px;text-align:center;font-size:9px;">
+</div>
+    </div>
+
+    <div class="btn-grid">
+        
+        <button
+class="btn bg-blue"
+id="galleryBtn">
+🖼️ 갤러리
+</button>
+        <button class="btn bg-green" id="excelSaveBtn">📊 엑셀저장</button>
+        <button class="btn bg-blue" id="mailShareBtn">📤 공유하기</button>
+        <button class="btn bg-purple">📁 ZIP 압축</button>
+        <button class="btn bg-gray" id="backupBtn">💾 데이터 백업</button>
+        <button class="btn bg-gray" id="restoreBtn">🔄 데이터 복원</button>
+        
+        <button class="btn bg-red">🚨 전체 삭제</button>
+    </div>
+
+    <div style="display:flex;justify-content:flex-start;align-items:center;gap:10px;margin-top:10px;">
+    <div class="gallery-section">
+<div class="gallery-header">
+<span>🖼️ 현장사진 갤러리</span>
+<span class="gallery-badge">자동저장 ON</span>
+</div>
+<div style="font-weight:bold;font-size:14px;margin-bottom:10px;" id="photoCount">🖼️ 총 사진 : 0장 / 신규 : 0장</div>
+<div class="gallery-grid" id="galleryGrid"></div>
+</div>
+</div>
+
+
+
+<input
+type="file"
+id="cameraInput"
+accept="image/*"
+capture="environment"
+style="display:none;">
+
+<input
+type="file"
+id="galleryInput"
+accept="image/*"
+multiple
+style="display:none;">
+
+
+
+<script>
+
+
+document.addEventListener("DOMContentLoaded",()=>{
+
+const gallery=document.getElementById("galleryGrid");
+
+const count=document.getElementById("photoCount");
+
+const cameraBtn=document.getElementById("cameraBtn");
+
+const galleryBtn=document.getElementById("galleryBtn");
+
+const camera=document.getElementById("cameraInput");
+
+const galleryInput=document.getElementById("galleryInput");
+
+let newPhotoCount=0;
+const photoStore=[];
+
+if(cameraBtn){ cameraBtn.onclick=()=>camera.click(); }
+
+if(galleryBtn){ galleryBtn.onclick=()=>galleryInput.click(); }
+
+camera.onchange=()=>{
+
+[...camera.files].forEach(addPhoto);
+
+camera.value="";
+
+};
+
+galleryInput.onchange=()=>{
+
+[...galleryInput.files].forEach(addPhoto);
+
+galleryInput.value="";
+
+};
+
+function addPhoto(file){
+
+newPhotoCount++;
+photoStore.push({file:file,name:file.name});
+
+const total=gallery.children.length+1;
+
+const card=document.createElement("div");
+
+card.className="photo-card"; const chk=document.createElement("input"); chk.type="checkbox"; chk.className="photo-check"; card.appendChild(chk);
+
+if(typeof selectMode!=='undefined' && !selectMode){
+  chk.style.display='none';
+}
+
+
+const img=document.createElement("img");
+
+
+const reader=new FileReader();
+reader.onload=function(e){
+
+    const source=new Image();
+
+    source.onload=function(){
+
+        const canvas=document.createElement("canvas");
+        const maxWidth=1280;
+
+        const scale=Math.min(1,maxWidth/source.width);
+
+        canvas.width=source.width*scale;
+        canvas.height=source.height*scale;
+
+        const ctx=canvas.getContext("2d");
+        ctx.drawImage(source,0,0,canvas.width,canvas.height);
+
+        const compressedBase64=canvas.toDataURL("image/jpeg",0.55);
+
+        img.src=compressedBase64;
+        card.dataset.base64=compressedBase64;
+
+    };
+
+    source.src=e.target.result;
+};
+reader.readAsDataURL(file);
+
+
+img.style.width="100%";
+
+img.style.borderRadius="6px";
+
+
+card.appendChild(img);
+
+const delBtn=document.createElement("button");
+delBtn.innerHTML="✕";
+delBtn.style.cssText=`position:absolute;top:2px;right:2px;width:22px;height:22px;border:none;border-radius:50%;background:#dc3545;color:#fff;font-size:14px;font-weight:bold;cursor:pointer;z-index:10;`;
+delBtn.onclick=(e)=>{
+ e.stopPropagation();
+ if(confirm("사진을 삭제하시겠습니까?")){
+   card.remove();
+   if(typeof renumberPhotosV506==="function"){ renumberPhotosV506(); }
+ }
+};
+card.appendChild(delBtn);
+
+
+
+
+// 파일명 화면 숨김
+
+gallery.appendChild(card);
+
+updateCount();
+
+}
+
+function updateCount(){
+
+count.innerHTML=
+
+`🖼️ 총 사진 : ${gallery.children.length}장 / 신규 : ${newPhotoCount}장`;
+
+}
+
+updateCount();
+
+});
+
+</script>
+
+
+<script>
+window.addEventListener('load', function () {
+  function calc(){
+    const oldNail = Number(document.getElementById('oldNail')?.value || 0);
+    const oldSticker = Number(document.getElementById('oldSticker')?.value || 0);
+    const crossing = Number(document.getElementById('crossing')?.value || 0);
+
+    const newNail = Number(document.getElementById('newNail')?.value || 0);
+    const newSticker = Number(document.getElementById('newSticker')?.value || 0);
+
+    const oldBox = document.getElementById('oldBox');
+    const newBox = document.getElementById('newBox');
+
+    if(oldBox) oldBox.value = oldNail + oldSticker;
+    if(newBox) newBox.value = newNail + newSticker + crossing;
+  }
+
+  ['oldNail','oldSticker','crossing','newNail','newSticker'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el){
+      el.addEventListener('input', calc);
+      el.addEventListener('change', calc);
+    }
+  });
+
+  calc();
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded",()=>{
+ const manager=document.getElementById("managerName");
+ if(manager){
+   manager.value=localStorage.getItem("managerName")||"김태호";
+   manager.addEventListener("input",()=>{
+      localStorage.setItem("managerName",manager.value);
+   });
+ }
+});
+</script>
+
+
+<script>
+document.addEventListener("DOMContentLoaded",()=>{
+ const manager=document.getElementById("managerName");
+ if(!manager) return;
+
+ manager.addEventListener("blur",()=>{
+   manager.value = manager.value.trim();
+   if(!manager.value) manager.value="김태호";
+   localStorage.setItem("managerName",manager.value);
+ });
+
+ manager.addEventListener("keydown",(e)=>{
+   if(e.key==="Enter"){
+      manager.blur();
+   }
+ });
+});
+</script>
+
+
+<script>
+document.addEventListener("DOMContentLoaded",()=>{
+ const manager=document.getElementById("managerName");
+ if(!manager) return;
+
+ manager.addEventListener("change",()=>{
+   alert("담당자명이 저장되었습니다.\n담당자 : " + manager.value);
+ });
+});
+</script>
+
+
+<div id="photoModal" style="display:none;position:fixed;z-index:9999;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.9);justify-content:center;align-items:center;">
+  <button id="closeZoomBtn">✕</button><img id="modalImg" style="max-width:95%;max-height:95%;object-fit:contain;">
+</div>
+
+<script>
+document.addEventListener("click", function(e){
+  if(e.target.matches(".photo-card img")){
+    document.getElementById("modalImg").src = e.target.src;
+    document.getElementById("photoModal").style.display = "flex";
+  }
+});
+document.getElementById("photoModal")?.addEventListener("click", function(e){
+  if(e.target.id==="photoModal" || e.target.id==="closeZoomBtn"){
+    this.style.display = "none";
+  }
+});
+</script>
+
+<script>
+/* V50.5 기능 추가 */
+function renumberPhotos(){
+  document.querySelectorAll('#galleryGrid .photo-card').forEach((card,idx)=>{
+    const nodes=[...card.childNodes];
+    const txt=nodes.find(n=>n.nodeType===3 && n.textContent.trim());
+    if(txt) txt.textContent=("000"+(idx+1)).slice(-3);
+  });
+}
+
+let pressTimer=null;
+document.addEventListener('mousedown',e=>{
+ const card=e.target.closest('.photo-card');
+ if(!card) return;
+ pressTimer=setTimeout(()=>{
+   if(confirm('사진을 삭제하시겠습니까?')){
+      card.remove();
+      renumberPhotos();
+   }
+ },1000);
+});
+document.addEventListener('mouseup',()=>clearTimeout(pressTimer));
+document.addEventListener('touchend',()=>clearTimeout(pressTimer));
+
+/* 스와이프 준비 */
+let currentPhotoIndex=0;
+let startX=0;
+document.addEventListener('touchstart',e=>{
+ if(document.getElementById('photoModal')?.style.display==='flex'){
+   startX=e.touches[0].clientX;
+ }
+},{passive:true});
+
+document.addEventListener('touchend',e=>{
+ const modal=document.getElementById('photoModal');
+ if(!modal || modal.style.display!=='flex') return;
+ const endX=e.changedTouches[0].clientX;
+ const diff=endX-startX;
+ const imgs=[...document.querySelectorAll('#galleryGrid .photo-card img')];
+ if(Math.abs(diff)>50 && imgs.length){
+   currentPhotoIndex += diff<0 ? 1 : -1;
+   if(currentPhotoIndex<0) currentPhotoIndex=imgs.length-1;
+   if(currentPhotoIndex>=imgs.length) currentPhotoIndex=0;
+   const m=document.getElementById('modalImg');
+   if(m){
+  m.src=imgs[currentPhotoIndex].src;
+  const info=document.getElementById('photoIndexInfo');
+  if(info){
+    info.textContent=`[ ${currentPhotoIndex+1} / ${imgs.length} ]`;
+  }
+}
+ }
+},{passive:true});
+
+/* 핀치줌 기본 */
+let scale=1;
+const modalImgGetter=()=>document.getElementById('modalImg');
+document.addEventListener('wheel',e=>{
+ const img=modalImgGetter();
+ if(!img) return;
+ scale += e.deltaY<0 ? 0.1 : -0.1;
+ scale=Math.max(1,Math.min(scale,5));
+ img.style.transform='scale('+scale+')';
+});
+</script>
+
+
+<script>
+/* V50.6 실구현 기능 */
+function updatePhotoCountEx(){
+ const cnt=document.getElementById('photoCount');
+ const total=document.querySelectorAll('#galleryGrid .photo-card').length;
+ if(cnt) cnt.innerHTML=`🖼️ 총 사진 : ${total}장`;
+}
+
+function renumberPhotosV506(){
+ document.querySelectorAll('#galleryGrid .photo-card').forEach((card,i)=>{
+   let num=card.querySelector('.photo-no');
+   if(!num){
+      num=document.createElement('div');
+      num.className='photo-no';
+      card.appendChild(num);
+   }
+   num.textContent=('000'+(i+1)).slice(-3);
+ });
+ updatePhotoCountEx();
+}
+
+/* 선택삭제 버튼 연결 */
+document.addEventListener('click',e=>{
+ const btn=e.target.closest('.bg-red');
+ if(!btn || !btn.textContent.includes('개별 삭제')) return;
+ document.querySelectorAll('.photo-check:checked').forEach(ch=>ch.closest('.photo-card')?.remove());
+ renumberPhotosV506();
+});
+
+/* 확대화면 번호 표시 */
+document.addEventListener('click',e=>{
+ if(e.target.matches('.photo-card img')){
+   const imgs=[...document.querySelectorAll('#galleryGrid .photo-card img')];
+   const idx=imgs.indexOf(e.target)+1;
+currentPhotoIndex=idx-1;
+   let info=document.getElementById('photoIndexInfo');
+   if(!info){
+      info=document.createElement('div');
+      info.id='photoIndexInfo';
+      info.style='position:absolute;bottom:40px;left:50%;transform:translateX(-50%);width:140px;height:50px;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font-size:24px;font-weight:800;border:2px solid #fff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.5);z-index:10001;';
+      document.getElementById('photoModal').appendChild(info);
+   }
+   info.textContent=`[ ${idx} / ${imgs.length} ]`;
+ }
+});
+
+/* 모바일 핀치줌 */
+let pinchStart=0, pinchScale=1;
+document.addEventListener('touchmove',e=>{
+ const img=document.getElementById('modalImg');
+ if(!img || e.touches.length!==2) return;
+ const dx=e.touches[0].clientX-e.touches[1].clientX;
+ const dy=e.touches[0].clientY-e.touches[1].clientY;
+ const dist=Math.hypot(dx,dy);
+ if(!pinchStart){ pinchStart=dist; return; }
+ pinchScale*=dist/pinchStart;
+ pinchScale=Math.max(1,Math.min(5,pinchScale));
+ img.style.transform='scale('+pinchScale+')';
+ pinchStart=dist;
+},{passive:true});
+document.addEventListener('touchend',()=>{ pinchStart=0; });
+</script>
+
+
+<script>
+/* V50.7 */
+let selectMode=false;
+
+document.getElementById('selectModeBtn')?.addEventListener('click',()=>{
+ selectMode=!selectMode;
+ document.querySelectorAll('.photo-check').forEach(ch=>{
+   ch.style.display=selectMode?'block':'none';
+ });
+});
+
+document.querySelectorAll('.photo-check').forEach(ch=>{
+ ch.style.display='none';
+});
+
+document.addEventListener('click',e=>{
+ const btn=e.target.closest('.bg-red');
+ if(!btn) return;
+
+ if(btn.textContent.includes('전체 삭제')){
+   if(confirm('모든 사진을 삭제하시겠습니까?')){
+      document.getElementById('galleryGrid').innerHTML='';
+      const cnt=document.getElementById('photoCount');
+      if(cnt) cnt.innerHTML='🖼️ 총 사진 : 0장';
+   }
+ }
+});
+
+/* ZIP 버튼 */
+document.addEventListener('click',async e=>{
+ const btn=e.target.closest('.bg-purple');
+ if(!btn || !btn.textContent.includes('ZIP')) return;
+
+ if(typeof JSZip==='undefined'){
+   alert('JSZip 라이브러리가 필요합니다.');
+   return;
+ }
+
+ const zip=new JSZip();
+ const imgs=[...document.querySelectorAll('#galleryGrid .photo-card img')];
+
+ for(let i=0;i<imgs.length;i++){
+   const res=await fetch(imgs[i].src);
+   const blob=await res.blob();
+   zip.file(('000'+(i+1)).slice(-3)+'.jpg', blob);
+ }
+
+ const content=await zip.generateAsync({type:'blob'});
+ const mn=(document.getElementById('manageNo')?.value||'현장사진').trim(); saveAs(content, mn+'_현장사진.zip');
+});
+</script>
+
+
+<script>
+/* V51.3 드래그 순서이동 */
+document.addEventListener('DOMContentLoaded',()=>{
+ const gallery=document.getElementById('galleryGrid');
+ if(!gallery) return;
+
+ let dragItem=null;
+
+ gallery.addEventListener('dragstart',e=>{
+   const card=e.target.closest('.photo-card');
+   if(!card) return;
+   dragItem=card;
+ });
+
+ gallery.addEventListener('dragover',e=>{
+   e.preventDefault();
+   const target=e.target.closest('.photo-card');
+   if(!target || target===dragItem) return;
+
+   const rect=target.getBoundingClientRect();
+   const next=(e.clientY-rect.top) > rect.height/2;
+   gallery.insertBefore(dragItem,next?target.nextSibling:target);
+ });
+
+ gallery.querySelectorAll('.photo-card').forEach(card=>{
+   card.draggable=true;
+ });
+
+ const observer=new MutationObserver(()=>{
+   gallery.querySelectorAll('.photo-card').forEach(card=>{
+      card.draggable=true;
+   });
+   if(typeof renumberPhotosV506==='function') renumberPhotosV506();
+ });
+ observer.observe(gallery,{childList:true});
+});
+</script>
+
+
+<script>
+/* V51.4 모바일 터치 드래그 + 순서 저장 */
+document.addEventListener('DOMContentLoaded',()=>{
+ const gallery=document.getElementById('galleryGrid');
+ if(!gallery) return;
+
+ function saveOrder(){
+   const order=[...gallery.querySelectorAll('.photo-card img')].map(img=>img.src);
+   localStorage.setItem('photoOrder',JSON.stringify(order));
+ }
+
+ let touchCard=null;
+ let startY=0;
+
+ gallery.addEventListener('touchstart',e=>{
+   touchCard=e.target.closest('.photo-card');
+   if(!touchCard) return;
+   startY=e.touches[0].clientY;
+ },{passive:true});
+
+ gallery.addEventListener('touchmove',e=>{
+   if(!touchCard) return;
+   const target=document.elementFromPoint(
+      e.touches[0].clientX,
+      e.touches[0].clientY
+   )?.closest('.photo-card');
+
+   if(target && target!==touchCard){
+      gallery.insertBefore(touchCard,target);
+      if(navigator.vibrate) navigator.vibrate(20);
+   }
+ },{passive:true});
+
+ gallery.addEventListener('touchend',()=>{
+   touchCard=null;
+   if(typeof renumberPhotosV506==='function') renumberPhotosV506();
+   saveOrder();
+ });
+
+ const observer=new MutationObserver(saveOrder);
+ observer.observe(gallery,{childList:true});
+});
+</script>
+
+
+<script>
+/* V51.5 드래그 UI 강화 */
+document.addEventListener('DOMContentLoaded',()=>{
+ const style=document.createElement('style');
+ style.textContent=`
+ .dragging{
+   opacity:0.45;
+   transform:scale(1.05);
+ }
+ .drop-target{
+   outline:3px dashed #0066ff;
+   outline-offset:-2px;
+ }
+ `;
+ document.head.appendChild(style);
+
+ const gallery=document.getElementById('galleryGrid');
+ if(!gallery) return;
+
+ let dragCard=null;
+
+ gallery.addEventListener('dragstart',e=>{
+   dragCard=e.target.closest('.photo-card');
+   if(dragCard) dragCard.classList.add('dragging');
+ });
+
+ gallery.addEventListener('dragover',e=>{
+   e.preventDefault();
+   const target=e.target.closest('.photo-card');
+   document.querySelectorAll('.drop-target').forEach(el=>el.classList.remove('drop-target'));
+   if(target && target!==dragCard){
+      target.classList.add('drop-target');
+   }
+ });
+
+ gallery.addEventListener('drop',()=>{
+   document.querySelectorAll('.drop-target').forEach(el=>el.classList.remove('drop-target'));
+   if(typeof renumberPhotosV506==='function') renumberPhotosV506();
+ });
+
+ gallery.addEventListener('dragend',()=>{
+   document.querySelectorAll('.drop-target').forEach(el=>el.classList.remove('drop-target'));
+   document.querySelectorAll('.dragging').forEach(el=>el.classList.remove('dragging'));
+   if(typeof renumberPhotosV506==='function') renumberPhotosV506();
+ });
+});
+</script>
+
+
+<script>
+/* V51.6 길게눌러 드래그 + 자동저장 강화 */
+document.addEventListener('DOMContentLoaded',()=>{
+ const gallery=document.getElementById('galleryGrid');
+ if(!gallery) return;
+
+ let pressTimer=null;
+
+ gallery.addEventListener('touchstart',e=>{
+   const card=e.target.closest('.photo-card');
+   if(!card) return;
+
+   pressTimer=setTimeout(()=>{
+      card.draggable=true;
+      card.classList.add('dragging');
+      if(navigator.vibrate) navigator.vibrate([30,30,30]);
+   },500);
+ },{passive:true});
+
+ gallery.addEventListener('touchend',()=>{
+   clearTimeout(pressTimer);
+
+   const order=[];
+   gallery.querySelectorAll('.photo-card img').forEach((img,i)=>{
+      order.push({
+        no:i+1,
+        src:img.src
+      });
+   });
+
+   localStorage.setItem('photoOrderV516',JSON.stringify(order));
+
+   document.querySelectorAll('.photo-card').forEach(c=>{
+      c.classList.remove('dragging');
+   });
+ });
+
+ // autoSaveInfo removed
+});
+</script>
+
+
+
+
+
+<script>
+/* V52.0 통합 안정화 */
+document.addEventListener('DOMContentLoaded',()=>{
+
+ const gallery=document.getElementById('galleryGrid');
+ if(!gallery) return;
+
+ /* 사진 메모 기능 */
+ function addMemoArea(card){
+   if(card.querySelector('.photo-memo')) return;
+   const memo=document.createElement('input');
+   memo.type='text';
+   memo.placeholder='사진 메모';
+   memo.className='photo-memo';
+   memo.style='width:95%;margin-top:4px;font-size:10px;';
+   card.appendChild(memo);
+ }
+ // memo removed
+
+ const observer=new MutationObserver(()=>{
+   // memo removed
+ });
+ observer.observe(gallery,{childList:true});
+
+ });
+
+ /* 순서 자동복원 준비 */
+ window.addEventListener('beforeunload',()=>{
+   const order=[...gallery.querySelectorAll('.photo-card')].map(c=>c.innerText);
+   localStorage.setItem('photoOrderBackup',JSON.stringify(order));
+ });
+
+ /* 성능 최적화 */
+ gallery.style.contain='content';
+
+ console.log('V52.0 안정화 적용완료');
+});
+</script>
+
+
+
+
+
+<script>
+document.addEventListener("DOMContentLoaded",()=>{
+  const manageNo=document.getElementById("manageNo");
+  const cameraBtn=document.getElementById("cameraBtn");
+  const galleryBtn=document.getElementById("galleryBtn");
+  const galleryInput=document.getElementById("galleryInput");
+  const cameraInput=document.getElementById("cameraInput");
+
+  function checkManageNo(){
+    const v=(manageNo?.value||"").trim();
+    if(!v){
+      alert("관리번호를 먼저 입력하세요.");
+      manageNo?.focus();
+      return false;
+    }
+    return true;
+  }
+
+  if(cameraBtn){
+    cameraBtn.addEventListener("click",(e)=>{
+      if(!checkManageNo()){
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      }
+    },true);
+  }
+
+  if(galleryBtn){
+    galleryBtn.addEventListener("click",(e)=>{
+      if(!checkManageNo()){
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      }
+    },true);
+  }
+});
+</script>
+
+<script>
+/* V55.3 작업사진대장 개선 */
+
+/* V56.0 SK 작업사진대장 */
+console.log('V56.1 SK 작업사진대장 적용');
+
+</script>
+
+<script>
+/* V58.0 사진 작업구분 엑셀저장 준비 */
+
+
+</script>
+
+<script>
+/* V69.1 엑셀 서식 강화 */
+function applyV691Style(sheet){
+  sheet.eachRow((row)=>{
+    row.eachCell((cell)=>{
+      cell.alignment={vertical:'middle',horizontal:'center',wrapText:true};
+      cell.border={
+        top:{style:'thin'},
+        left:{style:'thin'},
+        bottom:{style:'thin'},
+        right:{style:'thin'}
+      };
+    });
+  });
+}
+</script>
+<script>
+/* V69.2 인쇄 최적화 */
+function applyV692PrintStyle(workbook){
+  workbook.eachSheet((sheet)=>{
+    sheet.pageSetup = {
+      paperSize: 9,
+      orientation: 'landscape',
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 1,
+      horizontalCentered: true,
+      margins:{
+        left:0.2,right:0.2,top:0.3,bottom:0.3,header:0.1,footer:0.1
+      }
+    };
+
+    const headerRow = sheet.getRow(1);
+    headerRow.eachCell((cell)=>{
+      cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF003399'}};
+      cell.font={bold:true,color:{argb:'FFFFFFFF'},size:16};
+    });
+
+    sheet.eachRow((row)=>{
+      if(row.height < 22) row.height = 22;
+    });
+  });
+}
+</script>
+
+<script>
+/* V70.0 SK 최종양식 안정화 */
+async function buildMaterialSheetV70(workbook, manageNo, managerName){
+ const ws = workbook.addWorksheet("자재수량관리");
+ ws.columns=[
+ {header:"관리번호",key:"m",width:18},
+ {header:"담당자",key:"mgr",width:12},
+ {header:"기설합",key:"oldBox",width:10},
+ {header:"기설못",key:"oldNail",width:10},
+ {header:"기설스티커",key:"oldSticker",width:12},
+ {header:"신설합",key:"newBox",width:10},
+ {header:"신설못",key:"newNail",width:10},
+ {header:"신설스티커",key:"newSticker",width:12},
+ {header:"횡단",key:"crossing",width:10},
+ {header:"락카",key:"lacquer",width:10},
+ {header:"총합계",key:"total",width:10},
+ {header:"작성일시",key:"dt",width:20}
+ ];
+ const oldBox=+document.getElementById("oldBox").value||0;
+ const newBox=+document.getElementById("newBox").value||0;
+ const oldNail=+document.getElementById("oldNail").value||0;
+ const oldSticker=+document.getElementById("oldSticker").value||0;
+ const newNail=+document.getElementById("newNail").value||0;
+ const newSticker=+document.getElementById("newSticker").value||0;
+ const crossing=+document.getElementById("crossing").value||0;
+ const lacquer=+document.getElementById("lacquer").value||0;
+
+ ws.addRow({
+ m:manageNo,mgr:managerName,oldBox,oldNail,oldSticker,
+ newBox,newNail,newSticker,crossing,lacquer,
+ total:oldBox+newBox+lacquer,
+ dt:new Date().toLocaleString()
+ });
+
+ ws.eachRow(row=>{
+    row.eachCell(c=>{
+      c.alignment={vertical:'middle',horizontal:'center'};
+      c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+    });
+  });
+
+  ws.getRow(1).eachCell(c=>{
+   c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF003399'}};
+   c.font={bold:true,color:{argb:'FFFFFFFF'}}
+ });
+}
+</script>
+
+
+
+
+
+
+
+
+
+
+<script>
+document.addEventListener('DOMContentLoaded',()=>{
+ const manage=document.getElementById('manageNo');
+ const gallery=document.getElementById('galleryGrid');
+
+ if(manage){
+   manage.addEventListener('change',()=>{
+      localStorage.setItem('manageNo_v723',manage.value);
+   });
+ }
+
+ const excelBtn=document.getElementById('excelSaveBtn');
+ if(excelBtn){
+   excelBtn.addEventListener('click',(e)=>{
+      const photoCnt=document.querySelectorAll('#galleryGrid .photo-card').length;
+      if(photoCnt===0){
+         alert('사진이 없습니다.');
+         e.stopImmediatePropagation();
+      }
+   },true);
+ }
+});
+</script>
+
+
+<button id="fabCamera" title="촬영">📸</button>
+
+<style>
+#fabCamera{
+ position:fixed;
+ right:20px;
+ bottom:20px;
+ width:65px;
+ height:65px;
+ border:none;
+ border-radius:50%;
+ background:#0056b3;
+ color:#fff;
+ font-size:28px;
+ font-weight:bold;
+ box-shadow:0 4px 12px rgba(0,0,0,.3);
+ z-index:9999;
+}
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded",()=>{
+ const fab=document.getElementById("fabCamera");
+ const camera=document.getElementById("cameraInput");
+ if(fab && camera){
+   fab.addEventListener("click",()=>{
+ const manage=document.getElementById("manageNo");
+ if(!manage || !manage.value.trim()){
+   alert("관리번호를 먼저 입력하세요.");
+   manage?.focus();
+   return;
+ }
+ camera.click();
+});
+ }
+});
+</script>
+
+
+<input type="file" id="restoreFile" accept=".json" style="display:none;">
+
+
+
+
+<script>
+document.addEventListener("DOMContentLoaded",()=>{
+
+  function refreshPhotoCount(){
+    const cnt=document.getElementById("photoCount");
+    const total=document.querySelectorAll("#galleryGrid .photo-card").length;
+    if(cnt) cnt.innerHTML=`🖼️ 총 사진 : ${total}장`;
+  }
+
+  window.refreshPhotoCount = refreshPhotoCount;
+
+  const gallery=document.getElementById("galleryGrid");
+  if(gallery){
+    const observer=new MutationObserver(refreshPhotoCount);
+    observer.observe(gallery,{childList:true});
+  }
+});
+</script>
+
+
+<input type="file" id="restoreFileStable" accept=".json" style="display:none;">
+
+<script>
+document.addEventListener("DOMContentLoaded",function(){
+
+ const backup=document.getElementById("backupBtn");
+ const restore=document.getElementById("restoreBtn");
+ const restoreFile=document.getElementById("restoreFileStable");
+
+ if(backup){
+   backup.onclick=async function(){
+      const data={
+        managerName:document.getElementById("managerName")?.value||"",
+        manageNo:document.getElementById("manageNo")?.value||"",
+        oldNail:document.getElementById("oldNail")?.value||"0",
+        oldSticker:document.getElementById("oldSticker")?.value||"0",
+        newNail:document.getElementById("newNail")?.value||"0",
+        newSticker:document.getElementById("newSticker")?.value||"0",
+        crossing:document.getElementById("crossing")?.value||"0",
+        lacquer:document.getElementById("lacquer")?.value||"0"
+      };
+
+      const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+      saveAs(blob,(data.manageNo||"현장사진")+"_backup.json");
+      alert("백업 완료");
+   };
+ }
+
+ if(restore){
+   restore.onclick=function(){
+      restoreFile.click();
+   };
+ }
+
+ if(restoreFile){
+   restoreFile.onchange=function(e){
+      const file=e.target.files[0];
+      if(!file) return;
+
+      const reader=new FileReader();
+      reader.onload=function(){
+         try{
+            const d=JSON.parse(reader.result);
+
+            Object.keys(d).forEach(function(key){
+               const el=document.getElementById(key);
+               if(el) el.value=d[key];
+            });
+
+            alert("복원 완료");
+         }catch(err){
+            alert("복원 실패");
+         }
+      };
+      reader.readAsText(file);
+   };
+ }
+});
+</script>
+
+
+<script>
+window.addEventListener("load",()=>{
+ try{
+   // removed V81
+   // removed V81
+   const manage=document.getElementById("manageNo");
+   if(manage){
+      // V81.2 removed auto clear manageNo
+      manage.setAttribute("autocomplete","off");
+   }
+ }catch(e){}
+});
+</script>
+
+
+
+
+
+
+
+<!-- V77.3 XLSX SHARE READY -->
+
+
+
+<!-- V77.4 XLSX ATTACH SHARE -->
+
+
+<!-- V78.0 개발준비 -->
+
+
+
+
+
+<script>
+window.addEventListener("load",function(){
+
+  const btn=document.getElementById("mailShareBtn");
+  if(!btn) return;
+
+  async function generateExcelBlob(){
+      const msg = "V79 공유기능 적용 완료.\n\n실제 첨부공유를 위해서는 기존 excelSaveBtn의 Workbook 생성 코드를 이 함수로 이동해야 합니다.";
+      return new Blob([msg],{type:"text/plain"});
+  }
+
+  btn.onclick=async function(){
+
+    const manageNo = document.getElementById("manageNo")?.value.trim() || "현장사진";
+    const fileName = `${manageNo}_지중 표시기 보강 작업_현장 작업사진.xlsx`;
+
+    try{
+      const blob = await generateExcelBlob();
+      const file = new File([blob], fileName, {
+        type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      });
+
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+          await navigator.share({
+              files:[file],
+              title:"현장사진관리",
+              text:"현장 작업사진 엑셀 파일입니다."
+          });
+      }else{
+          alert("이 기기나 브라우저는 파일 공유를 지원하지 않습니다. 엑셀 저장 후 직접 첨부하세요.");
+      }
+
+    }catch(err){
+      console.error(err);
+      alert("공유 중 오류가 발생했습니다.");
+    }
+
+  };
+
+});
+</script>
+
+
+<script>
+function saveFile(blob,fileName){
+  try{
+  
+
+
+
+
+try{
+  saveAs(blob,fileName);
+  
+}catch(e){
+  alert("saveAs 오류\n\n" + e.message);
+}
+
+
+
+}catch(err){
+  alert('엑셀 저장 오류 : '+err.message);
+  console.error(err);
+}
+  return true;
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js')
+      .then(reg => {
+        console.log('Service Worker 등록 완료', reg);
+      })
+      .catch(err => {
+        console.error('Service Worker 등록 실패', err);
+      });
+  });
+}
+</script>
+
+
+
+
+
+</body>
+
+
+
+
+</html>
