@@ -1585,37 +1585,35 @@ window.addEventListener("load",()=>{
 window.addEventListener("load",function(){
 
   const btn=document.getElementById("mailShareBtn");
-  if(!btn) return;
+  const excelBtn=document.getElementById("excelSaveBtn");
 
-  async function generateExcelBlob(){
-      const msg = "V79 공유기능 적용 완료.\n\n실제 첨부공유를 위해서는 기존 excelSaveBtn의 Workbook 생성 코드를 이 함수로 이동해야 합니다.";
-      return new Blob([msg],{type:"text/plain"});
-  }
+  if(!btn || !excelBtn) return;
 
   btn.onclick=async function(){
 
-    const manageNo = document.getElementById("manageNo")?.value.trim() || "현장사진";
-    const fileName = `${manageNo}_지중 표시기 보강 작업_현장 작업사진.xlsx`;
-
     try{
-      const blob = await generateExcelBlob();
-      const file = new File([blob], fileName, {
-        type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-      });
 
-      if(navigator.canShare && navigator.canShare({files:[file]})){
-          await navigator.share({
-              files:[file],
+      excelBtn.click();
+
+      setTimeout(async ()=>{
+
+        const manageNo=document.getElementById("manageNo")?.value.trim()||"";
+
+        if(navigator.share){
+          try{
+            await navigator.share({
               title:"현장사진관리",
-              text:"현장 작업사진 엑셀 파일입니다."
-          });
-      }else{
-          alert("이 기기나 브라우저는 파일 공유를 지원하지 않습니다. 엑셀 저장 후 직접 첨부하세요.");
-      }
+              text:`관리번호 : ${manageNo}
+엑셀파일이 다운로드 폴더에 저장되었습니다.`
+            });
+          }catch(e){}
+        }
+
+      },1500);
 
     }catch(err){
       console.error(err);
-      alert("공유 중 오류가 발생했습니다.");
+      alert("공유 처리 중 오류가 발생했습니다.");
     }
 
   };
