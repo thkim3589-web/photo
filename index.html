@@ -302,6 +302,31 @@ input[placeholder="사진 메모"]{display:none !important;}
     font-weight:700;
     white-space:nowrap;
 }
+.material-group-header{
+    cursor:pointer;
+    user-select:none;
+    touch-action:manipulation;
+}
+.material-group-title{
+    display:flex;
+    align-items:center;
+    gap:5px;
+}
+.group-toggle-icon{
+    display:inline-block;
+    font-size:10px;
+    transition:transform 0.2s ease;
+}
+.material-group.expanded .group-toggle-icon{
+    transform:rotate(180deg);
+}
+.material-items-grid{
+    display:none;
+    margin-top:8px;
+}
+.material-group.expanded .material-items-grid{
+    display:grid;
+}
 </style>
 
 
@@ -390,11 +415,6 @@ const buttons=document.querySelectorAll(".btn");
 function update(){
 const ok=manage.value.trim()!=="";
 buttons.forEach(btn=>{
-    if(btn.id==="backupBtn" || btn.id==="restoreBtn"){
-        btn.disabled=false;
-        btn.style.opacity="1";
-        return;
-    }
     btn.disabled=!ok;
     btn.style.opacity=ok?"1":"0.4";
 });
@@ -664,7 +684,7 @@ style="width:60px;min-height:auto;height:20px;border:none;background:transparent
 
         <div class="material-group old-group">
             <div class="material-group-header">
-                <div class="material-group-title">🟡 기존 설치 (기설)</div>
+                <div class="material-group-title">🟡 기존 설치 (기설) <span class="group-toggle-icon">▾</span></div>
                 <div class="group-total-badge">합계
                     <input type="number" id="oldBox" value="0" readonly>
                 </div>
@@ -691,7 +711,7 @@ style="width:60px;min-height:auto;height:20px;border:none;background:transparent
 
         <div class="material-group new-group">
             <div class="material-group-header">
-                <div class="material-group-title">🟢 신규 설치 (신설)</div>
+                <div class="material-group-title">🟢 신규 설치 (신설) <span class="group-toggle-icon">▾</span></div>
                 <div class="group-total-badge">합계
                     <input type="number" id="newBox" value="0" readonly>
                 </div>
@@ -722,6 +742,14 @@ style="width:60px;min-height:auto;height:20px;border:none;background:transparent
                     </div>
                 </div>
                 <div class="material-item">
+                    <div class="material-item-label">🚧 표지판</div>
+                    <div class="qty-stepper">
+                        <button type="button" class="qty-btn qty-minus" data-target="signBoard">−</button>
+                        <input type="number" id="signBoard" value="0" readonly class="qty-input">
+                        <button type="button" class="qty-btn qty-plus" data-target="signBoard">+</button>
+                    </div>
+                </div>
+                <div class="material-item">
                     <div class="material-item-label">🥫 락카</div>
                     <div class="qty-stepper">
                         <button type="button" class="qty-btn qty-minus" data-target="lacquer">−</button>
@@ -743,9 +771,6 @@ id="galleryBtn">
         <button class="btn bg-green" id="excelSaveBtn">📊 엑셀저장</button>
         <button class="btn bg-blue" id="mailShareBtn">📤 공유하기</button>
         <button class="btn bg-purple">📁 ZIP 압축</button>
-        <button class="btn bg-gray" id="backupBtn">💾 데이터 백업</button>
-        <button class="btn bg-gray" id="restoreBtn">🔄 데이터 복원</button>
-        
         <button class="btn bg-red">🚨 전체 삭제</button>
     </div>
 
@@ -918,6 +943,7 @@ window.addEventListener('load', function () {
     const oldNail = Number(document.getElementById('oldNail')?.value || 0);
     const oldSticker = Number(document.getElementById('oldSticker')?.value || 0);
     const crossing = Number(document.getElementById('crossing')?.value || 0);
+    const signBoard = Number(document.getElementById('signBoard')?.value || 0);
 
     const newNail = Number(document.getElementById('newNail')?.value || 0);
     const newSticker = Number(document.getElementById('newSticker')?.value || 0);
@@ -926,10 +952,10 @@ window.addEventListener('load', function () {
     const newBox = document.getElementById('newBox');
 
     if(oldBox) oldBox.value = oldNail + oldSticker;
-    if(newBox) newBox.value = newNail + newSticker + crossing;
+    if(newBox) newBox.value = newNail + newSticker + crossing + signBoard;
   }
 
-  ['oldNail','oldSticker','crossing','newNail','newSticker'].forEach(id=>{
+  ['oldNail','oldSticker','crossing','signBoard','newNail','newSticker'].forEach(id=>{
     const el = document.getElementById(id);
     if(el){
       el.addEventListener('input', calc);
@@ -953,6 +979,17 @@ document.addEventListener('DOMContentLoaded', () => {
       input.value = val;
       input.dispatchEvent(new Event('input', {bubbles:true}));
       input.dispatchEvent(new Event('change', {bubbles:true}));
+    });
+  });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.material-group-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const group = header.closest('.material-group');
+      if(group) group.classList.toggle('expanded');
     });
   });
 });
@@ -1535,6 +1572,7 @@ async function buildMaterialSheetV70(workbook, manageNo, managerName){
  {header:"신설못",key:"newNail",width:10},
  {header:"신설스티커",key:"newSticker",width:12},
  {header:"횡단",key:"crossing",width:10},
+ {header:"표지판",key:"signBoard",width:10},
  {header:"락카",key:"lacquer",width:10},
  {header:"총합계",key:"total",width:10},
  {header:"작성일시",key:"dt",width:20}
@@ -1546,11 +1584,12 @@ async function buildMaterialSheetV70(workbook, manageNo, managerName){
  const newNail=+document.getElementById("newNail").value||0;
  const newSticker=+document.getElementById("newSticker").value||0;
  const crossing=+document.getElementById("crossing").value||0;
+ const signBoard=+document.getElementById("signBoard").value||0;
  const lacquer=+document.getElementById("lacquer").value||0;
 
  ws.addRow({
  m:manageNo,mgr:managerName,oldBox,oldNail,oldSticker,
- newBox,newNail,newSticker,crossing,lacquer,
+ newBox,newNail,newSticker,crossing,signBoard,lacquer,
  total:oldBox+newBox+lacquer,
  dt:new Date().toLocaleString()
  });
@@ -1642,8 +1681,6 @@ document.addEventListener("DOMContentLoaded",()=>{
 </script>
 
 
-<input type="file" id="restoreFile" accept=".json" style="display:none;">
-
 
 
 
@@ -1667,65 +1704,7 @@ document.addEventListener("DOMContentLoaded",()=>{
 </script>
 
 
-<input type="file" id="restoreFileStable" accept=".json" style="display:none;">
 
-<script>
-document.addEventListener("DOMContentLoaded",function(){
-
- const backup=document.getElementById("backupBtn");
- const restore=document.getElementById("restoreBtn");
- const restoreFile=document.getElementById("restoreFileStable");
-
- if(backup){
-   backup.onclick=async function(){
-      const data={
-        managerName:document.getElementById("managerName")?.value||"",
-        manageNo:document.getElementById("manageNo")?.value||"",
-        oldNail:document.getElementById("oldNail")?.value||"0",
-        oldSticker:document.getElementById("oldSticker")?.value||"0",
-        newNail:document.getElementById("newNail")?.value||"0",
-        newSticker:document.getElementById("newSticker")?.value||"0",
-        crossing:document.getElementById("crossing")?.value||"0",
-        lacquer:document.getElementById("lacquer")?.value||"0"
-      };
-
-      const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
-      saveAs(blob,(data.manageNo||"현장사진")+"_backup.json");
-      alert("백업 완료");
-   };
- }
-
- if(restore){
-   restore.onclick=function(){
-      restoreFile.click();
-   };
- }
-
- if(restoreFile){
-   restoreFile.onchange=function(e){
-      const file=e.target.files[0];
-      if(!file) return;
-
-      const reader=new FileReader();
-      reader.onload=function(){
-         try{
-            const d=JSON.parse(reader.result);
-
-            Object.keys(d).forEach(function(key){
-               const el=document.getElementById(key);
-               if(el) el.value=d[key];
-            });
-
-            alert("복원 완료");
-         }catch(err){
-            alert("복원 실패");
-         }
-      };
-      reader.readAsText(file);
-   };
- }
-});
-</script>
 
 
 <script>
