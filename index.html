@@ -197,6 +197,113 @@ input[placeholder="사진 메모"]{display:none !important;}
 
 </style>
 
+<style>
+.qty-stepper{
+    display:inline-flex;
+    align-items:center;
+    gap:3px;
+}
+.qty-btn{
+    width:24px;
+    height:24px;
+    border:none;
+    border-radius:6px;
+    background:#0056b3;
+    color:#fff;
+    font-size:15px;
+    font-weight:700;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    touch-action:manipulation;
+    padding:0;
+    line-height:1;
+    user-select:none;
+}
+.qty-btn:active{
+    background:#003d82;
+    transform:scale(0.95);
+}
+.qty-input{
+    width:28px;
+    height:24px;
+    text-align:center;
+    font-size:12px;
+    font-weight:700;
+    border:1px solid #ccc;
+    border-radius:4px;
+    background:#fff;
+    pointer-events:none;
+}
+.material-group{
+    border-radius:8px;
+    padding:8px;
+}
+.material-group.old-group{
+    border:1px solid #ffe08a;
+    background:#fffbea;
+    margin-bottom:8px;
+}
+.material-group.new-group{
+    border:1px solid #b7e4c7;
+    background:#f2fbf5;
+}
+.material-group-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:8px;
+}
+.material-group-title{
+    font-size:12px;
+    font-weight:700;
+}
+.material-group.old-group .material-group-title{ color:#8a6d00; }
+.material-group.new-group .material-group-title{ color:#1e7a3d; }
+.group-total-badge{
+    display:flex;
+    align-items:center;
+    gap:4px;
+    font-size:11px;
+    font-weight:700;
+    background:#fff;
+    border-radius:8px;
+    padding:2px 8px;
+}
+.old-group .group-total-badge{ border:1px solid #e0c56b; color:#8a6d00; }
+.new-group .group-total-badge{ border:1px solid #8fcf9f; color:#1e7a3d; }
+.group-total-badge input{
+    width:30px;
+    height:20px;
+    text-align:center;
+    font-size:12px;
+    font-weight:700;
+    border:none;
+    background:transparent;
+    pointer-events:none;
+}
+.material-items-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+}
+.material-item{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    background:#fff;
+    border-radius:8px;
+    padding:6px 4px;
+    gap:4px;
+    border:1px solid #eee;
+}
+.material-item-label{
+    font-size:11px;
+    font-weight:700;
+    white-space:nowrap;
+}
+</style>
+
 
 <!-- V73.0 최적화 통합판 생성 : 중복코드 정리 및 경량화 준비 -->
 
@@ -532,12 +639,12 @@ try{
 
 <div class="app-container">
     
-<div class="header" style="position:relative;background:#003399;height:90px;border-radius:12px;margin-bottom:15px;">
-<div style="position:absolute;left:15px;top:12px;color:white;font-size:25px;font-weight:700;">현장사진관리</div>
-<div style="position:absolute;right:15px;bottom:10px;color:white;font-size:14px;font-weight:700;">
-👤 담당자 :
+<div class="header" style="position:relative;background:#003399;height:42px;border-radius:12px;margin-bottom:15px;display:flex;flex-direction:row;align-items:center;justify-content:space-between;padding:0 14px;overflow:hidden;">
+<div style="color:white;font-size:14px;font-weight:700;white-space:nowrap;">현장사진관리</div>
+<div style="color:white;font-size:11px;font-weight:700;display:flex;flex-direction:row;align-items:center;gap:3px;white-space:nowrap;">
+<span>담당자 :</span>
 <input type="text" id="managerName" value="김태호" maxlength="6"
-style="width:90px;border:none;background:transparent;color:white;font-weight:700;outline:none;">
+style="width:60px;min-height:auto;height:20px;border:none;background:transparent;color:white;font-weight:700;outline:none;font-size:11px;padding:0;">
 </div>
 </div>
 
@@ -554,18 +661,76 @@ style="width:90px;border:none;background:transparent;color:white;font-weight:700
 
 <div class="material-box">
         <div style="margin-bottom: 10px; font-weight: bold; font-size:18px;">자재 수량 관리</div>
-        <div class="material-row">
-<span style='font-size:10px'>기설합:</span><input type="number" id="oldBox" value="0" style="background:#fff3cd;font-weight:bold;width:30px;height:15px;font-size:12px;" min="0" inputmode="numeric" style="width:24px;height:14px;text-align:center;font-size:9px;">
-<span style='font-size:9px'>🔨 못:</span><input type="number" id="oldNail" value="0" min="0" inputmode="numeric" style="width:24px;height:14px;text-align:center;font-size:9px;">
-<span style='font-size:9px'>🟠 스티커:</span><input type="number" id="oldSticker" value="0" min="0" inputmode="numeric" style="width:24px;height:14px;text-align:center;font-size:9px;">
-</div>
-<div class="material-row">
-<span style='font-size:10px'>신설합:</span><input type="number" id="newBox" value="0" style="background:#d4edda;font-weight:bold;width:30px;height:15px;font-size:12px;" min="0" inputmode="numeric" style="width:24px;height:14px;text-align:center;font-size:9px;">
-<span style='font-size:9px'>🔧 못:</span><input type="number" id="newNail" value="0" min="0" inputmode="numeric" style="width:24px;height:14px;text-align:center;font-size:9px;">
-<span style='font-size:9px'>⚪ 스티커:</span><input type="number" id="newSticker" value="0" min="0" inputmode="numeric" style="width:24px;height:14px;text-align:center;font-size:9px;">
-<span style='font-size:9px'>횡단:</span><input type="number" id="crossing" value="0" min="0" inputmode="numeric" style="width:24px;height:14px;text-align:center;font-size:9px;">
-<span style='font-size:9px'>🥫 락카:</span><input type="number" id="lacquer" value="0" min="0" inputmode="numeric" style="width:24px;height:14px;text-align:center;font-size:9px;">
-</div>
+
+        <div class="material-group old-group">
+            <div class="material-group-header">
+                <div class="material-group-title">🟡 기존 설치 (기설)</div>
+                <div class="group-total-badge">합계
+                    <input type="number" id="oldBox" value="0" readonly>
+                </div>
+            </div>
+            <div class="material-items-grid">
+                <div class="material-item">
+                    <div class="material-item-label">🔨 못</div>
+                    <div class="qty-stepper">
+                        <button type="button" class="qty-btn qty-minus" data-target="oldNail">−</button>
+                        <input type="number" id="oldNail" value="0" readonly class="qty-input">
+                        <button type="button" class="qty-btn qty-plus" data-target="oldNail">+</button>
+                    </div>
+                </div>
+                <div class="material-item">
+                    <div class="material-item-label">🟠 스티커</div>
+                    <div class="qty-stepper">
+                        <button type="button" class="qty-btn qty-minus" data-target="oldSticker">−</button>
+                        <input type="number" id="oldSticker" value="0" readonly class="qty-input">
+                        <button type="button" class="qty-btn qty-plus" data-target="oldSticker">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="material-group new-group">
+            <div class="material-group-header">
+                <div class="material-group-title">🟢 신규 설치 (신설)</div>
+                <div class="group-total-badge">합계
+                    <input type="number" id="newBox" value="0" readonly>
+                </div>
+            </div>
+            <div class="material-items-grid">
+                <div class="material-item">
+                    <div class="material-item-label">🔧 못</div>
+                    <div class="qty-stepper">
+                        <button type="button" class="qty-btn qty-minus" data-target="newNail">−</button>
+                        <input type="number" id="newNail" value="0" readonly class="qty-input">
+                        <button type="button" class="qty-btn qty-plus" data-target="newNail">+</button>
+                    </div>
+                </div>
+                <div class="material-item">
+                    <div class="material-item-label">⚪ 스티커</div>
+                    <div class="qty-stepper">
+                        <button type="button" class="qty-btn qty-minus" data-target="newSticker">−</button>
+                        <input type="number" id="newSticker" value="0" readonly class="qty-input">
+                        <button type="button" class="qty-btn qty-plus" data-target="newSticker">+</button>
+                    </div>
+                </div>
+                <div class="material-item">
+                    <div class="material-item-label">횡단</div>
+                    <div class="qty-stepper">
+                        <button type="button" class="qty-btn qty-minus" data-target="crossing">−</button>
+                        <input type="number" id="crossing" value="0" readonly class="qty-input">
+                        <button type="button" class="qty-btn qty-plus" data-target="crossing">+</button>
+                    </div>
+                </div>
+                <div class="material-item">
+                    <div class="material-item-label">🥫 락카</div>
+                    <div class="qty-stepper">
+                        <button type="button" class="qty-btn qty-minus" data-target="lacquer">−</button>
+                        <input type="number" id="lacquer" value="0" readonly class="qty-input">
+                        <button type="button" class="qty-btn qty-plus" data-target="lacquer">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="btn-grid">
@@ -773,6 +938,23 @@ window.addEventListener('load', function () {
   });
 
   calc();
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.qty-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const input = document.getElementById(btn.dataset.target);
+      if(!input) return;
+      let val = parseInt(input.value, 10) || 0;
+      if(btn.classList.contains('qty-plus')) val += 1;
+      else val = Math.max(0, val - 1);
+      input.value = val;
+      input.dispatchEvent(new Event('input', {bubbles:true}));
+      input.dispatchEvent(new Event('change', {bubbles:true}));
+    });
+  });
 });
 </script>
 
@@ -1224,8 +1406,6 @@ document.addEventListener('DOMContentLoaded',()=>{
    // memo removed
  });
  observer.observe(gallery,{childList:true});
-
- });
 
  /* 순서 자동복원 준비 */
  window.addEventListener('beforeunload',()=>{
