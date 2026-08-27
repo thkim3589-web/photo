@@ -706,6 +706,14 @@ style="width:60px;min-height:auto;height:20px;border:none;background:transparent
                         <button type="button" class="qty-btn qty-plus" data-target="oldSticker">+</button>
                     </div>
                 </div>
+                <div class="material-item">
+                    <div class="material-item-label">🚧 표지판</div>
+                    <div class="qty-stepper">
+                        <button type="button" class="qty-btn qty-minus" data-target="oldSignBoard">−</button>
+                        <input type="number" id="oldSignBoard" value="0" readonly class="qty-input">
+                        <button type="button" class="qty-btn qty-plus" data-target="oldSignBoard">+</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -942,6 +950,7 @@ window.addEventListener('load', function () {
   function calc(){
     const oldNail = Number(document.getElementById('oldNail')?.value || 0);
     const oldSticker = Number(document.getElementById('oldSticker')?.value || 0);
+    const oldSignBoard = Number(document.getElementById('oldSignBoard')?.value || 0);
     const crossing = Number(document.getElementById('crossing')?.value || 0);
     const signBoard = Number(document.getElementById('signBoard')?.value || 0);
 
@@ -951,11 +960,11 @@ window.addEventListener('load', function () {
     const oldBox = document.getElementById('oldBox');
     const newBox = document.getElementById('newBox');
 
-    if(oldBox) oldBox.value = oldNail + oldSticker;
+    if(oldBox) oldBox.value = oldNail + oldSticker + oldSignBoard;
     if(newBox) newBox.value = newNail + newSticker + crossing + signBoard;
   }
 
-  ['oldNail','oldSticker','crossing','signBoard','newNail','newSticker'].forEach(id=>{
+  ['oldNail','oldSticker','oldSignBoard','crossing','signBoard','newNail','newSticker'].forEach(id=>{
     const el = document.getElementById(id);
     if(el){
       el.addEventListener('input', calc);
@@ -1568,6 +1577,7 @@ async function buildMaterialSheetV70(workbook, manageNo, managerName){
  {header:"기설합",key:"oldBox",width:10},
  {header:"기설못",key:"oldNail",width:10},
  {header:"기설스티커",key:"oldSticker",width:12},
+ {header:"기설표지판",key:"oldSignBoard",width:12},
  {header:"신설합",key:"newBox",width:10},
  {header:"신설못",key:"newNail",width:10},
  {header:"신설스티커",key:"newSticker",width:12},
@@ -1581,6 +1591,7 @@ async function buildMaterialSheetV70(workbook, manageNo, managerName){
  const newBox=+document.getElementById("newBox").value||0;
  const oldNail=+document.getElementById("oldNail").value||0;
  const oldSticker=+document.getElementById("oldSticker").value||0;
+ const oldSignBoard=+document.getElementById("oldSignBoard").value||0;
  const newNail=+document.getElementById("newNail").value||0;
  const newSticker=+document.getElementById("newSticker").value||0;
  const crossing=+document.getElementById("crossing").value||0;
@@ -1588,7 +1599,7 @@ async function buildMaterialSheetV70(workbook, manageNo, managerName){
  const lacquer=+document.getElementById("lacquer").value||0;
 
  ws.addRow({
- m:manageNo,mgr:managerName,oldBox,oldNail,oldSticker,
+ m:manageNo,mgr:managerName,oldBox,oldNail,oldSticker,oldSignBoard,
  newBox,newNail,newSticker,crossing,signBoard,lacquer,
  total:oldBox+newBox+lacquer,
  dt:new Date().toLocaleString()
