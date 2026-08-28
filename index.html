@@ -133,6 +133,7 @@ html,body{
         .bg-green { background: #28a745; }
         .bg-purple { background: #6f42c1; }
         .bg-gray { background: #6c757d; }
+        .bg-orange { background: #fd7e14; }
         .bg-red { background: #dc3545; }
         
         /* 갤러리 */
@@ -777,10 +778,18 @@ id="galleryBtn">
 🖼️ 갤러리
 </button>
         <button class="btn bg-green" id="excelSaveBtn">📊 엑셀저장</button>
+        <button class="btn bg-gray" id="excelLoadBtn">📥 엑셀불러오기</button>
+        <button class="btn bg-purple" id="materialSaveBtn">📦 자재저장</button>
         <button class="btn bg-blue" id="mailShareBtn">📤 공유하기</button>
         <button class="btn bg-purple">📁 ZIP 압축</button>
         <button class="btn bg-red">🚨 전체 삭제</button>
     </div>
+
+    <input
+    type="file"
+    id="excelLoadInput"
+    accept=".xlsx,.xls"
+    style="display:none;">
 
     <div style="display:flex;justify-content:flex-start;align-items:center;gap:10px;margin-top:10px;">
     <div class="gallery-section">
@@ -1652,6 +1661,455 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 </script>
 
+
+<script>
+/*
+  V85.0 자재 엑셀 불러오기 + 저장 (사진 엑셀저장과 완전 분리)
+
+  두 가지 엑셀 서식을 자동으로 인식한다.
+
+  [서식 A] 이 앱이 "📦 자재저장"으로 직접 만든 파일
+    헤더 1행: 관리번호, 담당자, 기설합, 기설못, 기설스티커, 기설표지판,
+              신설합, 신설못, 신설스티커, 횡단, 표지판, 락카, 총합계, 작성일시
+
+  [서식 B] 실무용 "OO년공정_지역명" 리스트 파일 (예: 26년공정_경북)
+    매칭 기준 열 : SK관리번호_관로 (G열)
+    기존(못) → oldNail / 신규,정상(못) → newNail
+    기존(경계석) → oldSticker / 신규,정상(경계석) → newSticker
+    기존(표지판) → oldSignBoard / 신규 지하매설 표지판 → signBoard
+    도로 횡단 사각 스티커(정상) → crossing
+    락카에 대응하는 열이 없어 항상 0으로 처리(파일에는 쓰지 않음)
+    ※ 신규 값은 '정상' 수치만 사용하고 '심도부족' 수치는 사용하지 않음
+    ※ 기존 표시기 합계 / 신규 표시기 합계 / 신규 설치 전체 열은 수식이라 건드리지 않음
+    ※ 저장 시 아래 4개 열도 함께 자동 기록(해당 열이 있는 파일에서만 동작):
+       - 공사/현행화(P) : 신설못/신설스티커/표지판/횡단 중 1개라도 있으면 "공사", 없으면 "현행화"
+       - Eng 번호(Q)     : "ENG번호" 시트에서 저장 시점의 월 + 공사/현행화 구분으로 조회
+       - 완료여부(R)     : "완료"
+       - 작업 완료일(S)  : 저장 시점의 날짜
+
+  동작 방식:
+  1) "📥 엑셀불러오기" : 리스트 엑셀을 불러와서 서식을 자동 판별하고,
+     현재 화면의 관리번호와 일치하는 행을 찾아 화면 입력칸에 값을 채워준다.
+     (불러온 워크북은 메모리에 그대로 보관 — 다른 행/다른 열은 손대지 않음)
+  2) "📦 자재저장" : 위에서 불러온 워크북이 있으면, 그 안의 일치했던 행(또는
+     새 관리번호면 새 행)의 해당 열만 화면 값으로 갱신해서 리스트 전체를
+     다시 저장한다. 불러온 파일이 없으면(직접 입력만 한 경우) 새
+     자재수량관리 파일(서식 A)을 1건으로 생성한다.
+*/
+document.addEventListener("DOMContentLoaded", () => {
+
+  const loadBtn = document.getElementById("excelLoadBtn");
+  const loadInput = document.getElementById("excelLoadInput");
+  const materialBtn = document.getElementById("materialSaveBtn");
+
+  // 불러온 엑셀 상태 보관
+  let loadedState = null;
+  // { workbook, worksheet, headerRow, headerMap, profile, matchRowNumber, fileName, loadedManageNo }
+
+  const LOAD_BTN_DEFAULT_TEXT = "📥 엑셀불러오기";
+
+  function updateLoadBtnUI() {
+    if (!loadBtn) return;
+    if (loadedState) {
+      loadBtn.classList.remove("bg-gray");
+      loadBtn.classList.add("bg-orange");
+      const name = loadedState.fileName || "";
+      const short = name.length > 16 ? name.slice(0, 14) + "…" : name;
+      loadBtn.textContent = `📥 불러옴: ${short}`;
+      loadBtn.title =
+        `불러온 파일: ${name}\n` +
+        `불러올 때 관리번호: ${loadedState.loadedManageNo}\n` +
+        `다시 누르면 새 파일 불러오기/해제를 선택합니다.`;
+    } else {
+      loadBtn.classList.remove("bg-orange");
+      loadBtn.classList.add("bg-gray");
+      loadBtn.textContent = LOAD_BTN_DEFAULT_TEXT;
+      loadBtn.removeAttribute("title");
+    }
+  }
+
+  // 서식별 설정
+  const PROFILES = {
+    A: {
+      manageHeader: "관리번호",
+      mgrHeader: "담당자",
+      fieldMap: {
+        oldNail: "기설못",
+        oldSticker: "기설스티커",
+        oldSignBoard: "기설표지판",
+        newNail: "신설못",
+        newSticker: "신설스티커",
+        crossing: "횡단",
+        signBoard: "표지판",
+        lacquer: "락카",
+      },
+    },
+    B: {
+      manageHeader: "SK관리번호_관로",
+      mgrHeader: null,
+      fieldMap: {
+        oldNail: "기존",
+        newNail: "신규/정상",
+        oldSticker: "기존(경계석)",
+        newSticker: "신규/정상(경계석)",
+        oldSignBoard: "기존(표지판)",
+        signBoard: "신규 지하매설 표지판",
+        crossing: "도로 횡단 사각 스티커",
+        // lacquer 매칭 열 없음 → 항상 0 처리
+      },
+    },
+  };
+
+  function normalizeHeader(v) {
+    return String(v ?? "")
+      .replace(/\r\n|\r|\n/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function buildHeaderMapAtRow(worksheet, rowNumber) {
+    const row = worksheet.getRow(rowNumber);
+    const map = {};
+    row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+      const text = normalizeHeader(cell.value);
+      if (text) map[text] = colNumber;
+    });
+    return map;
+  }
+
+  // 워크시트/헤더행/서식을 자동으로 탐지 (최대 10행까지 스캔)
+  function detectSheetProfile(workbook) {
+    for (const worksheet of workbook.worksheets) {
+      const maxScan = Math.min(10, worksheet.rowCount || 10);
+      for (let r = 1; r <= maxScan; r++) {
+        const map = buildHeaderMapAtRow(worksheet, r);
+        if (map[PROFILES.B.manageHeader]) {
+          return { worksheet, headerRow: r, headerMap: map, profile: "B" };
+        }
+        if (map[PROFILES.A.manageHeader]) {
+          return { worksheet, headerRow: r, headerMap: map, profile: "A" };
+        }
+      }
+    }
+    // 못 찾으면 첫 시트 1행을 서식 A로 간주 (최후 대비)
+    const worksheet = workbook.worksheets[0];
+    return {
+      worksheet,
+      headerRow: 1,
+      headerMap: worksheet ? buildHeaderMapAtRow(worksheet, 1) : {},
+      profile: "A",
+    };
+  }
+
+  function findRowByManageNo(worksheet, headerMap, manageHeaderCol, headerRow, manageNo) {
+    for (let r = headerRow + 1; r <= worksheet.rowCount; r++) {
+      const v = worksheet.getCell(r, manageHeaderCol).value;
+      if (String(v ?? "").trim() === manageNo) return r;
+    }
+    return null;
+  }
+
+  // "ENG번호" 시트에서 월(예: "8월") + 공사/현행화 구분으로 Eng 번호를 찾는다
+  function getEngNo(workbook, monthLabel, isConstruction) {
+    const ws = workbook.worksheets.find((w) => w.name.trim() === "ENG번호");
+    if (!ws) return null;
+    for (let r = 1; r <= ws.rowCount; r++) {
+      const label = normalizeHeader(ws.getCell(r, 3).value); // C열: 월
+      if (label === monthLabel) {
+        const val = isConstruction
+          ? ws.getCell(r, 4).value  // D열: 공사
+          : ws.getCell(r, 5).value; // E열: 현행화
+        return val ? String(val).trim() : null;
+      }
+    }
+    return null;
+  }
+
+  // ---------- 1) 엑셀 불러오기 ----------
+  if (loadBtn && loadInput) {
+    loadBtn.addEventListener("click", () => {
+      const manageNoEl = document.getElementById("manageNo");
+      if (!manageNoEl || !manageNoEl.value.trim()) {
+        alert("관리번호를 먼저 입력하세요.");
+        manageNoEl?.focus();
+        return;
+      }
+      if (typeof ExcelJS === "undefined") {
+        alert("ExcelJS 로드 실패");
+        return;
+      }
+
+      if (loadedState) {
+        const goNew = confirm(
+          `현재 "${loadedState.fileName}" 파일이 불러와져 있습니다.\n\n` +
+          `확인: 새 파일을 다시 불러오기\n` +
+          `취소: 불러오기 해제(초기화)`
+        );
+        if (!goNew) {
+          loadedState = null;
+          updateLoadBtnUI();
+          return;
+        }
+      }
+
+      loadInput.click();
+    });
+
+    loadInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const manageNo = document.getElementById("manageNo").value.trim();
+
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        try {
+          const workbook = new ExcelJS.Workbook();
+          await workbook.xlsx.load(ev.target.result);
+
+          const { worksheet, headerRow, headerMap, profile } = detectSheetProfile(workbook);
+
+          if (!worksheet) {
+            alert("엑셀에서 시트를 찾을 수 없습니다.");
+            return;
+          }
+
+          const cfg = PROFILES[profile];
+          const manageCol = headerMap[cfg.manageHeader];
+
+          if (!manageCol) {
+            alert(`엑셀에서 '${cfg.manageHeader}' 열을 찾을 수 없습니다.`);
+            return;
+          }
+
+          const matchRowNumber = findRowByManageNo(worksheet, headerMap, manageCol, headerRow, manageNo);
+
+          loadedState = {
+            workbook,
+            worksheet,
+            headerRow,
+            headerMap,
+            profile,
+            matchRowNumber, // null이면 리스트에 없던 신규 관리번호
+            fileName: file.name,
+            loadedManageNo: manageNo,
+          };
+          updateLoadBtnUI();
+
+          if (matchRowNumber === null) {
+            alert(
+              `엑셀은 불러왔지만 관리번호 "${manageNo}"는 리스트에 없습니다.\n` +
+              `값을 입력하고 "📦 자재저장"을 누르면 새 행으로 추가됩니다.`
+            );
+            loadInput.value = "";
+            return;
+          }
+
+          const row = worksheet.getRow(matchRowNumber);
+          const getVal = (header) => {
+            const col = headerMap[header];
+            if (!col) return null;
+            return row.getCell(col).value;
+          };
+
+          // 화면 입력칸에 반영 (서식에 매칭 열이 없는 필드는 0으로)
+          Object.keys(PROFILES.A.fieldMap).forEach((id) => {
+            const header = cfg.fieldMap[id];
+            const el = document.getElementById(id);
+            if (!el) return;
+            const raw = header ? getVal(header) : null;
+            const num = Number(raw);
+            el.value = Number.isFinite(num) ? num : 0;
+            el.dispatchEvent(new Event("input", { bubbles: true }));
+            el.dispatchEvent(new Event("change", { bubbles: true }));
+          });
+
+          if (cfg.mgrHeader) {
+            const mgrVal = getVal(cfg.mgrHeader);
+            if (mgrVal) {
+              const mgrEl = document.getElementById("managerName");
+              if (mgrEl) {
+                mgrEl.value = String(mgrVal).trim();
+                mgrEl.dispatchEvent(new Event("input", { bubbles: true }));
+              }
+            }
+          }
+
+          alert(
+            `관리번호 "${manageNo}" 자재 내역을 불러왔습니다. (서식 ${profile})\n` +
+            `필요 시 수정 후 "📦 자재저장"을 누르면 이 리스트에 반영되어 저장됩니다.`
+          );
+        } catch (err) {
+          alert("엑셀 불러오기 오류: " + err.message);
+          console.error(err);
+        } finally {
+          loadInput.value = "";
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  // ---------- 2) 자재저장 ----------
+  if (materialBtn) {
+    materialBtn.addEventListener("click", async () => {
+
+      if (typeof ExcelJS === "undefined") {
+        alert("ExcelJS 로드 실패");
+        return;
+      }
+      if (typeof saveAs === "undefined") {
+        alert("FileSaver 로드 실패");
+        return;
+      }
+
+      const manageNo = document.getElementById("manageNo").value.trim();
+      const managerName = document.getElementById("managerName").value.trim();
+
+      if (!manageNo) {
+        alert("관리번호를 입력하세요.");
+        return;
+      }
+
+      const getFieldVal = (id) => +document.getElementById(id)?.value || 0;
+      const oldNail = getFieldVal("oldNail");
+      const oldSticker = getFieldVal("oldSticker");
+      const oldSignBoard = getFieldVal("oldSignBoard");
+      const newNail = getFieldVal("newNail");
+      const newSticker = getFieldVal("newSticker");
+      const crossing = getFieldVal("crossing");
+      const signBoard = getFieldVal("signBoard");
+      const lacquer = getFieldVal("lacquer");
+      const oldBox = oldNail + oldSticker + oldSignBoard;
+      const newBox = newNail + newSticker + crossing + signBoard;
+      const total = oldBox + newBox + lacquer;
+      const dt = new Date().toLocaleString();
+
+      const fieldValues = { oldNail, oldSticker, oldSignBoard, newNail, newSticker, crossing, signBoard, lacquer };
+
+      try {
+        let workbook, worksheet, fileName;
+
+        // 불러온 리스트가 있으면 그 리스트의 해당 행만 갱신
+        if (loadedState && loadedState.workbook && loadedState.worksheet) {
+          ({ workbook, worksheet } = loadedState);
+          const { headerRow, profile } = loadedState;
+          const cfg = PROFILES[profile];
+          const headerMap = buildHeaderMapAtRow(worksheet, headerRow); // 최신 헤더 재확인
+
+          const manageCol = headerMap[cfg.manageHeader];
+          if (!manageCol) {
+            alert(`불러온 파일에서 '${cfg.manageHeader}' 열을 다시 찾지 못했습니다.`);
+            return;
+          }
+
+          // 저장 시점에 관리번호가 바뀌었을 수 있으니 다시 한 번 탐색
+          let targetRowNumber = loadedState.matchRowNumber;
+          const currentVal = targetRowNumber
+            ? String(worksheet.getCell(targetRowNumber, manageCol).value ?? "").trim()
+            : "";
+
+          if (targetRowNumber === null || currentVal !== manageNo) {
+            targetRowNumber = findRowByManageNo(worksheet, headerMap, manageCol, headerRow, manageNo);
+          }
+          if (targetRowNumber === null) {
+            // 리스트에 없던 관리번호 → 새 행 추가
+            targetRowNumber = worksheet.rowCount + 1;
+          }
+
+          const row = worksheet.getRow(targetRowNumber);
+
+          // 관리번호 열 기록
+          row.getCell(manageCol).value = manageNo;
+
+          // 항목별 값 기록 (서식에 대응 열이 있는 것만)
+          Object.entries(cfg.fieldMap).forEach(([id, header]) => {
+            const col = headerMap[header];
+            if (!col) return; // 이 서식에 없는 항목은 건너뜀 (예: 서식B의 락카)
+            row.getCell(col).value = fieldValues[id];
+          });
+
+          // 서식 A 전용 부가 항목 (담당자/합계/작성일시) — 열이 있을 때만 기록
+          if (profile === "A") {
+            const extra = {
+              "담당자": managerName,
+              "기설합": oldBox,
+              "신설합": newBox,
+              "총합계": total,
+              "작성일시": dt,
+            };
+            Object.entries(extra).forEach(([header, val]) => {
+              const col = headerMap[header];
+              if (!col) return;
+              row.getCell(col).value = val;
+            });
+          }
+
+          // 공사/현행화 구분, Eng 번호, 완료여부, 작업 완료일
+          // → 열이 실제로 있는 파일(서식 B)에만 적용됨 (헤더 없으면 자동으로 건너뜀)
+          {
+            const workDate = new Date();
+            const monthLabel = `${workDate.getMonth() + 1}월`;
+            const hasNew = newNail > 0 || newSticker > 0 || signBoard > 0 || crossing > 0;
+            const constructionType = hasNew ? "공사" : "현행화";
+            const engNo = getEngNo(workbook, monthLabel, hasNew) || "";
+
+            const typeCol = headerMap["공사/현행화"];
+            if (typeCol) row.getCell(typeCol).value = constructionType;
+
+            const engCol = headerMap["Eng 번호"];
+            if (engCol) row.getCell(engCol).value = engNo;
+
+            const doneCol = headerMap["완료여부"];
+            if (doneCol) row.getCell(doneCol).value = "완료";
+
+            const dateCol = headerMap["작업 완료일"];
+            if (dateCol) {
+              const cell = row.getCell(dateCol);
+              cell.value = workDate;
+              if (!cell.numFmt || cell.numFmt === "General") cell.numFmt = "yyyy-mm-dd";
+            }
+          }
+
+          row.commit();
+
+          // 불러온 원본 파일의 열 너비/행 높이/서식은 그대로 두고 값만 기록한다
+          // (전체 재스타일링 하지 않음 — 기존 양식 크기 변동 방지)
+
+          loadedState.matchRowNumber = targetRowNumber;
+          loadedState.loadedManageNo = manageNo;
+          updateLoadBtnUI();
+          fileName = loadedState.fileName || `${manageNo}_자재수량관리.xlsx`;
+
+        } else {
+          // 불러온 리스트가 없으면 새 파일로 1건 생성 (서식 A, 기존 방식)
+          if (typeof buildMaterialSheetV70 !== "function") {
+            alert("자재 시트 생성 함수 로드 실패");
+            return;
+          }
+          workbook = new ExcelJS.Workbook();
+          await buildMaterialSheetV70(workbook, manageNo, managerName);
+          workbook.eachSheet((sheet) => {
+            if (typeof applyV691Style === "function") applyV691Style(sheet);
+          });
+          if (typeof applyV692PrintStyle === "function") applyV692PrintStyle(workbook);
+          fileName = `${manageNo}_자재수량관리.xlsx`;
+        }
+
+        const excelBuffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([excelBuffer], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        });
+        saveAs(blob, fileName);
+
+      } catch (err) {
+        alert("자재 저장 오류: " + err.message);
+        console.error(err);
+      }
+    });
+  }
+});
+</script>
 
 <button id="fabCamera" title="촬영">📸</button>
 
