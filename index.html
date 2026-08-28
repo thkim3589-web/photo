@@ -1598,16 +1598,35 @@ async function buildMaterialSheetV70(workbook, manageNo, managerName){
  {header:"총합계",key:"total",width:10},
  {header:"작성일시",key:"dt",width:20}
  ];
- const oldBox=+document.getElementById("oldBox").value||0;
- const newBox=+document.getElementById("newBox").value||0;
- const oldNail=+document.getElementById("oldNail").value||0;
- const oldSticker=+document.getElementById("oldSticker").value||0;
- const oldSignBoard=+document.getElementById("oldSignBoard").value||0;
- const newNail=+document.getElementById("newNail").value||0;
- const newSticker=+document.getElementById("newSticker").value||0;
- const crossing=+document.getElementById("crossing").value||0;
- const signBoard=+document.getElementById("signBoard").value||0;
- const lacquer=+document.getElementById("lacquer").value||0;
+ const oldBox0=+document.getElementById("oldBox").value||0;
+ const newBox0=+document.getElementById("newBox").value||0;
+ const oldNail0=+document.getElementById("oldNail").value||0;
+ const oldSticker0=+document.getElementById("oldSticker").value||0;
+ const oldSignBoard0=+document.getElementById("oldSignBoard").value||0;
+ const newNail0=+document.getElementById("newNail").value||0;
+ const newSticker0=+document.getElementById("newSticker").value||0;
+ const crossing0=+document.getElementById("crossing").value||0;
+ const signBoard0=+document.getElementById("signBoard").value||0;
+ const lacquer0=+document.getElementById("lacquer").value||0;
+
+ // "✅ 적용" 이후 화면 수량이 0으로 초기화된 상태라면, 적용 시점에 기억해둔
+ // 마지막 값(관리번호 기준)을 대신 사용해서 엑셀저장 시 0으로 찍히지 않게 한다.
+ const rawFields = { oldNail: oldNail0, oldSticker: oldSticker0, oldSignBoard: oldSignBoard0,
+   newNail: newNail0, newSticker: newSticker0, crossing: crossing0, signBoard: signBoard0, lacquer: lacquer0 };
+ const allZero = Object.values(rawFields).every(v => v === 0);
+ const snapshot = (window._appliedMaterialValues && window._appliedMaterialValues.get(manageNo)) || null;
+ const src = (allZero && snapshot) ? snapshot : { ...rawFields, oldBox: oldBox0, newBox: newBox0 };
+
+ const oldBox=src.oldBox;
+ const newBox=src.newBox;
+ const oldNail=src.oldNail;
+ const oldSticker=src.oldSticker;
+ const oldSignBoard=src.oldSignBoard;
+ const newNail=src.newNail;
+ const newSticker=src.newSticker;
+ const crossing=src.crossing;
+ const signBoard=src.signBoard;
+ const lacquer=src.lacquer;
 
  ws.addRow({
  m:manageNo,mgr:managerName,oldBox,oldNail,oldSticker,oldSignBoard,
@@ -2056,6 +2075,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const fieldValues = { oldNail, oldSticker, oldSignBoard, newNail, newSticker, crossing, signBoard, lacquer };
 
+      // 엑셀저장(사진 엑셀)이 초기화 이후에도 방금 적용한 값을 정확히 쓸 수 있도록
+      // 관리번호별로 마지막 적용값을 전역에 기억해둔다
+      window._appliedMaterialValues = window._appliedMaterialValues || new Map();
+      window._appliedMaterialValues.set(manageNo, { ...fieldValues, oldBox, newBox, total });
+
       try {
         // 작업 중인 워크북이 없으면 새로 생성 (서식 A)
         if (!workingState) {
@@ -2145,6 +2169,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
         updateLoadBtnUI();
         updateDownloadBtnUI();
+
+        // 다음 작업을 위해 자재 수량 입력칸을 0으로 초기화 (관리번호/담당자는 유지)
+        ["oldNail", "oldSticker", "oldSignBoard", "newNail", "newSticker", "crossing", "signBoard", "lacquer"]
+          .forEach((id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.value = 0;
+            el.dispatchEvent(new Event("input", { bubbles: true }));
+            el.dispatchEvent(new Event("change", { bubbles: true }));
+          });
 
       } catch (err) {
         alert("적용 오류: " + err.message);
