@@ -44,6 +44,7 @@ function hideStatus(){
 
 // ---- 이번 업데이트에서 바뀐 내용 (파일 수정할 때마다 이 목록을 갱신) ----
 const CHANGELOG_LATEST = [
+  "사진이 '자동저장 ON' 표시대로 실제로 자동저장되도록 구현 (새로고침/앱 종료 후에도 사진 유지)",
   "엑셀불러오기 시 서식 자동 인식 (자체 양식 / 실무용 26년공정 리스트)",
   "자재수량 저장을 '적용'과 '다운로드'로 분리 — 여러 건 모아서 마지막에 한 번만 다운로드",
   "'적용' 시 공사/현행화, Eng번호, 완료여부, 작업완료일 자동 기록",
@@ -100,6 +101,78 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 });
+
+// ---- 사진 실제 자동저장 (IndexedDB) ----
+// 관리번호/담당자/순서는 localStorage로 이미 저장되지만,
+// 사진 원본(압축본) 자체는 여기서 IndexedDB에 저장해서
+// 새로고침/앱 강제종료 후에도 사진이 남아있게 한다.
+const PHOTO_DB_NAME = "photoAppDB";
+const PHOTO_DB_VERSION = 1;
+const PHOTO_STORE_NAME = "photos";
+
+function openPhotoDB(){
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) { reject(new Error("IndexedDB 미지원")); return; }
+    const req = indexedDB.open(PHOTO_DB_NAME, PHOTO_DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(PHOTO_STORE_NAME)) {
+        db.createObjectStore(PHOTO_STORE_NAME, { keyPath: "id" });
+      }
+    };
+    req.onsuccess = (e) => resolve(e.target.result);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+async function savePhotoRecord(record){
+  try {
+    const db = await openPhotoDB();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(PHOTO_STORE_NAME, "readwrite");
+      tx.objectStore(PHOTO_STORE_NAME).put(record);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = (e) => reject(e.target.error);
+    });
+  } catch (e) {
+    console.error("사진 자동저장 실패", e);
+    return false;
+  }
+}
+
+async function getAllPhotoRecords(){
+  try {
+    const db = await openPhotoDB();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(PHOTO_STORE_NAME, "readonly");
+      const req = tx.objectStore(PHOTO_STORE_NAME).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  } catch (e) {
+    console.error("저장된 사진 불러오기 실패", e);
+    return [];
+  }
+}
+
+async function deletePhotoRecord(id){
+  try {
+    const db = await openPhotoDB();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(PHOTO_STORE_NAME, "readwrite");
+      tx.objectStore(PHOTO_STORE_NAME).delete(id);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = (e) => reject(e.target.error);
+    });
+  } catch (e) {
+    console.error("사진 자동저장 삭제 실패", e);
+    return false;
+  }
+}
+
+function generatePhotoId(){
+  return "p_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+}
 </script>
 <head>
 
@@ -1024,7 +1097,7 @@ const total=gallery.children.length+1;
 
 const card=document.createElement("div");
 
-card.className="photo-card"; const chk=document.createElement("input"); chk.type="checkbox"; chk.className="photo-check"; card.appendChild(chk);
+card.className="photo-card"; const photoId=generatePhotoId(); card.dataset.photoId=photoId; const chk=document.createElement("input"); chk.type="checkbox"; chk.className="photo-check"; card.appendChild(chk);
 
 if(typeof selectMode!=='undefined' && !selectMode){
   chk.style.display='none';
@@ -1064,6 +1137,9 @@ reader.onload=function(e){
         img.src=compressedBase64;
         card.dataset.base64=compressedBase64;
         decPendingPhoto();
+
+        const orderIdx=[...gallery.children].indexOf(card);
+        savePhotoRecord({ id: photoId, base64: compressedBase64, order: orderIdx, createdAt: Date.now() });
 
     };
 
@@ -1114,6 +1190,90 @@ updateCount();
 
 });
 
+</script>
+
+<script>
+/* 사진 실제 자동저장 — 페이지 로드시 복원 + 이후 변경사항 자동 동기화 */
+document.addEventListener("DOMContentLoaded", async () => {
+  const gallery = document.getElementById("galleryGrid");
+  if (!gallery) return;
+
+  // ---- 저장된 사진 복원 ----
+  try {
+    const records = await getAllPhotoRecords();
+    records.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    records.forEach((rec) => {
+      if (!rec || !rec.base64) return;
+
+      const card = document.createElement("div");
+      card.className = "photo-card";
+      card.dataset.photoId = rec.id;
+      card.dataset.base64 = rec.base64;
+
+      const chk = document.createElement("input");
+      chk.type = "checkbox";
+      chk.className = "photo-check";
+      chk.style.display = "none";
+      card.appendChild(chk);
+
+      const img = document.createElement("img");
+      img.src = rec.base64;
+      img.style.width = "100%";
+      img.style.borderRadius = "6px";
+      card.appendChild(img);
+
+      const delBtn = document.createElement("button");
+      delBtn.innerHTML = "✕";
+      delBtn.style.cssText = "position:absolute;top:2px;right:2px;width:22px;height:22px;border:none;border-radius:50%;background:#dc3545;color:#fff;font-size:14px;font-weight:bold;cursor:pointer;z-index:10;";
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (confirm("사진을 삭제하시겠습니까?")) {
+          card.remove();
+          if (typeof renumberPhotosV506 === "function") renumberPhotosV506();
+        }
+      };
+      card.appendChild(delBtn);
+
+      gallery.appendChild(card);
+    });
+
+    if (records.length > 0) {
+      const cnt = document.getElementById("photoCount");
+      if (cnt) cnt.innerHTML = `🖼️ 총 사진 : ${gallery.children.length}장 / 신규 : 0장`;
+      if (typeof renumberPhotosV506 === "function") renumberPhotosV506();
+    }
+  } catch (e) {
+    console.error("사진 복원 실패", e);
+  }
+
+  // ---- 이후 갤러리 변경(추가/삭제/순서변경)을 자동으로 DB에 반영 ----
+  const dbSyncObserver = new MutationObserver(() => {
+    const cards = [...gallery.querySelectorAll(".photo-card")];
+    const currentIds = cards.map((c) => c.dataset.photoId).filter(Boolean);
+
+    // 순서 갱신 (압축이 끝나 base64가 있는 카드만 저장 — 아직 처리중인 새 사진은
+    // addPhoto 쪽에서 압축 완료 시 정확한 값으로 저장하므로 여기서는 건드리지 않음)
+    cards.forEach((c, i) => {
+      if (c.dataset.photoId && c.dataset.base64) {
+        savePhotoRecord({
+          id: c.dataset.photoId,
+          base64: c.dataset.base64,
+          order: i,
+          createdAt: Date.now()
+        }).catch(() => {});
+      }
+    });
+
+    // DB에는 있지만 화면에서 사라진 사진은 자동저장에서도 삭제
+    getAllPhotoRecords().then((records) => {
+      records.forEach((r) => {
+        if (!currentIds.includes(r.id)) deletePhotoRecord(r.id);
+      });
+    });
+  });
+  dbSyncObserver.observe(gallery, { childList: true });
+});
 </script>
 
 
