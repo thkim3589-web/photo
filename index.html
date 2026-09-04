@@ -44,6 +44,14 @@ function hideStatus(){
 
 // ---- 이번 업데이트에서 바뀐 내용 (파일 수정할 때마다 이 목록을 갱신) ----
 const CHANGELOG_LATEST = [
+  "[중요] 관리번호를 바꾼 뒤 사진을 추가/재정렬하면 이전 현장 사진의 관리번호가 잘못 덮어써지던 문제 수정",
+  "[중요] 다른 관리번호로 전환 시 이전 현장의 저장된 사진이 삭제되던 심각한 버그 수정",
+  "'전체 삭제' 시 저장소도 명시적으로 함께 삭제하도록 이중 안전장치 추가",
+  "엑셀저장 시 사진이 하나라도 누락되면 빈 칸으로 저장하지 않고 저장 자체를 중단하도록 변경",
+  "사진 저장이 관리번호와 연결되도록 수정 (다른 현장 사진이 섞여 나오던 문제)",
+  "사진 삭제/재정렬 시 '신규' 개수 표시가 사라지던 표시 오류 수정",
+  "쓰이지 않던 예전 순서저장 코드(용량 위험 있던 것 포함) 정리",
+  "'자동저장 ON' 배지를 눌러서 실제로 켜고 끌 수 있는 토글로 변경",
   "사진이 '자동저장 ON' 표시대로 실제로 자동저장되도록 구현 (새로고침/앱 종료 후에도 사진 유지)",
   "엑셀불러오기 시 서식 자동 인식 (자체 양식 / 실무용 26년공정 리스트)",
   "자재수량 저장을 '적용'과 '다운로드'로 분리 — 여러 건 모아서 마지막에 한 번만 다운로드",
@@ -173,6 +181,37 @@ async function deletePhotoRecord(id){
 function generatePhotoId(){
   return "p_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
 }
+
+// ---- 자동저장 ON/OFF 토글 ----
+(function(){
+  let saved = null;
+  try { saved = localStorage.getItem("autoSaveEnabled"); } catch(e) {}
+  window._autoSaveEnabled = (saved === null) ? true : (saved === "true");
+})();
+
+function updateAutoSaveBadge(){
+  const badge = document.getElementById("autoSaveBadge");
+  if (!badge) return;
+  if (window._autoSaveEnabled) {
+    badge.textContent = "자동저장 ON";
+    badge.style.background = "#0d6efd";
+  } else {
+    badge.textContent = "자동저장 OFF";
+    badge.style.background = "#6c757d";
+  }
+}
+
+function toggleAutoSave(){
+  window._autoSaveEnabled = !window._autoSaveEnabled;
+  try { localStorage.setItem("autoSaveEnabled", String(window._autoSaveEnabled)); } catch(e) {}
+  updateAutoSaveBadge();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  updateAutoSaveBadge();
+  const badge = document.getElementById("autoSaveBadge");
+  if (badge) badge.addEventListener("click", toggleAutoSave);
+});
 </script>
 <head>
 
@@ -748,6 +787,15 @@ const imageTasks = cards.map(async (card,i)=>{
 
 await Promise.all(imageTasks);
 
+if (missingPhotoNums.length > 0) {
+  hideStatus();
+  alert(
+    `${missingPhotoNums.join(", ")}번 사진 처리가 완료되지 않아 저장을 중단합니다.\n` +
+    `잠시 후 다시 "엑셀저장"을 눌러 재시도해 주세요.`
+  );
+  return;
+}
+
 showStatus("엑셀 파일 생성 중...");
 
 
@@ -830,12 +878,6 @@ try{
 try{
   saveAs(blob,fileName);
   hideStatus();
-  if (missingPhotoNums.length > 0) {
-    alert(
-      `엑셀 저장은 완료됐지만, ${missingPhotoNums.join(", ")}번 사진이 처리되지 않아 빈 칸으로 저장됐습니다.\n` +
-      `해당 사진을 확인 후 다시 저장해 주세요.`
-    );
-  }
   
 }catch(e){
   hideStatus();
@@ -1022,7 +1064,7 @@ id="galleryBtn">
     <div class="gallery-section">
 <div class="gallery-header">
 <span>🖼️ 현장사진 갤러리</span>
-<span class="gallery-badge">자동저장 ON</span>
+<span class="gallery-badge" id="autoSaveBadge" style="cursor:pointer;user-select:none;" title="눌러서 자동저장 켜기/끄기">자동저장 ON</span>
 <span class="gallery-badge" id="photoProcessingBadge" style="display:none;background:#fd7e14;">🔄 처리중 0장</span>
 </div>
 <div style="font-weight:bold;font-size:14px;margin-bottom:10px;" id="photoCount">🖼️ 총 사진 : 0장 / 신규 : 0장</div>
@@ -1065,7 +1107,7 @@ const camera=document.getElementById("cameraInput");
 
 const galleryInput=document.getElementById("galleryInput");
 
-let newPhotoCount=0;
+window.newPhotoCount = window.newPhotoCount || 0;
 const photoStore=[];
 
 if(cameraBtn){ cameraBtn.onclick=()=>camera.click(); }
@@ -1090,7 +1132,7 @@ galleryInput.value="";
 
 function addPhoto(file){
 
-newPhotoCount++;
+window.newPhotoCount++;
 photoStore.push({file:file,name:file.name});
 
 const total=gallery.children.length+1;
@@ -1139,7 +1181,11 @@ reader.onload=function(e){
         decPendingPhoto();
 
         const orderIdx=[...gallery.children].indexOf(card);
-        savePhotoRecord({ id: photoId, base64: compressedBase64, order: orderIdx, createdAt: Date.now() });
+        if (window._autoSaveEnabled) {
+          const curManageNo = document.getElementById("manageNo")?.value.trim() || "";
+          card.dataset.manageNo = curManageNo;
+          savePhotoRecord({ id: photoId, base64: compressedBase64, order: orderIdx, manageNo: curManageNo, createdAt: Date.now() });
+        }
 
     };
 
@@ -1182,7 +1228,7 @@ function updateCount(){
 
 count.innerHTML=
 
-`🖼️ 총 사진 : ${gallery.children.length}장 / 신규 : ${newPhotoCount}장`;
+`🖼️ 총 사진 : ${gallery.children.length}장 / 신규 : ${window.newPhotoCount}장`;
 
 }
 
@@ -1198,18 +1244,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   const gallery = document.getElementById("galleryGrid");
   if (!gallery) return;
 
-  // ---- 저장된 사진 복원 ----
+  // ---- 저장된 사진 복원 (현재 관리번호에 해당하는 것만) ----
   try {
+    const curManageNo = document.getElementById("manageNo")?.value.trim() || "";
     const records = await getAllPhotoRecords();
-    records.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const filtered = records.filter(
+      (r) => r && r.base64 && (!r.manageNo || r.manageNo === curManageNo)
+    );
+    filtered.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-    records.forEach((rec) => {
-      if (!rec || !rec.base64) return;
-
+    filtered.forEach((rec) => {
       const card = document.createElement("div");
       card.className = "photo-card";
       card.dataset.photoId = rec.id;
       card.dataset.base64 = rec.base64;
+      card.dataset.manageNo = rec.manageNo || curManageNo;
 
       const chk = document.createElement("input");
       chk.type = "checkbox";
@@ -1238,7 +1287,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       gallery.appendChild(card);
     });
 
-    if (records.length > 0) {
+    if (filtered.length > 0) {
       const cnt = document.getElementById("photoCount");
       if (cnt) cnt.innerHTML = `🖼️ 총 사진 : ${gallery.children.length}장 / 신규 : 0장`;
       if (typeof renumberPhotosV506 === "function") renumberPhotosV506();
@@ -1252,24 +1301,39 @@ document.addEventListener("DOMContentLoaded", async () => {
     const cards = [...gallery.querySelectorAll(".photo-card")];
     const currentIds = cards.map((c) => c.dataset.photoId).filter(Boolean);
 
-    // 순서 갱신 (압축이 끝나 base64가 있는 카드만 저장 — 아직 처리중인 새 사진은
-    // addPhoto 쪽에서 압축 완료 시 정확한 값으로 저장하므로 여기서는 건드리지 않음)
-    cards.forEach((c, i) => {
-      if (c.dataset.photoId && c.dataset.base64) {
-        savePhotoRecord({
-          id: c.dataset.photoId,
-          base64: c.dataset.base64,
-          order: i,
-          createdAt: Date.now()
-        }).catch(() => {});
-      }
-    });
-
-    // DB에는 있지만 화면에서 사라진 사진은 자동저장에서도 삭제
-    getAllPhotoRecords().then((records) => {
-      records.forEach((r) => {
-        if (!currentIds.includes(r.id)) deletePhotoRecord(r.id);
+    // 순서 갱신 (자동저장이 켜져 있을 때만 기록 — 압축이 끝나 base64가 있는
+    // 카드만 저장하며, 아직 처리중인 새 사진은 addPhoto 쪽에서 압축 완료 시
+    // 정확한 값으로 저장하므로 여기서는 건드리지 않음)
+    // ⚠️ 관리번호는 화면의 "현재 입력값"이 아니라 각 카드에 촬영/복원 시점에
+    //    고정해둔 card.dataset.manageNo를 사용해야 함 — 그렇지 않으면 다른
+    //    관리번호로 바꾼 뒤 사진을 추가/재정렬할 때 예전 사진들의 관리번호가
+    //    현재 입력값으로 잘못 덮어써지는 문제가 생김
+    if (window._autoSaveEnabled) {
+      cards.forEach((c, i) => {
+        if (c.dataset.photoId && c.dataset.base64) {
+          const ownerManageNo = c.dataset.manageNo || (document.getElementById("manageNo")?.value.trim() || "");
+          savePhotoRecord({
+            id: c.dataset.photoId,
+            base64: c.dataset.base64,
+            order: i,
+            manageNo: ownerManageNo,
+            createdAt: Date.now()
+          }).catch(() => {});
+        }
       });
+    }
+
+    // DB에는 있지만 화면에서 사라진 사진은 자동저장 설정과 무관하게 항상 정리
+    // ⚠️ 반드시 "현재 관리번호에 속한 사진"만 비교해야 함 —
+    //    그렇지 않으면 다른 관리번호로 작업 중일 때 화면에 안 보인다는 이유로
+    //    다른 현장의 저장된 사진까지 통째로 삭제되는 심각한 데이터 손실이 발생함
+    getAllPhotoRecords().then((records) => {
+      const curManageNo = document.getElementById("manageNo")?.value.trim() || "";
+      records
+        .filter((r) => !r.manageNo || r.manageNo === curManageNo)
+        .forEach((r) => {
+          if (!currentIds.includes(r.id)) deletePhotoRecord(r.id);
+        });
     });
   });
   dbSyncObserver.observe(gallery, { childList: true });
@@ -1471,7 +1535,7 @@ document.addEventListener('wheel',e=>{
 function updatePhotoCountEx(){
  const cnt=document.getElementById('photoCount');
  const total=document.querySelectorAll('#galleryGrid .photo-card').length;
- if(cnt) cnt.innerHTML=`🖼️ 총 사진 : ${total}장`;
+ if(cnt) cnt.innerHTML=`🖼️ 총 사진 : ${total}장 / 신규 : ${window.newPhotoCount||0}장`;
 }
 
 function renumberPhotosV506(){
@@ -1552,8 +1616,20 @@ document.addEventListener('click',e=>{
  if(btn.textContent.includes('전체 삭제')){
    if(confirm('모든 사진을 삭제하시겠습니까?')){
       document.getElementById('galleryGrid').innerHTML='';
+      window.newPhotoCount = 0;
       const cnt=document.getElementById('photoCount');
-      if(cnt) cnt.innerHTML='🖼️ 총 사진 : 0장';
+      if(cnt) cnt.innerHTML='🖼️ 총 사진 : 0장 / 신규 : 0장';
+
+      // Observer의 간접 정리에만 기대지 않고, 현재 관리번호의 저장된 사진을
+      // 여기서도 명시적으로 직접 삭제 (이중 안전장치)
+      if (typeof getAllPhotoRecords === 'function' && typeof deletePhotoRecord === 'function') {
+        const curManageNo = document.getElementById('manageNo')?.value.trim() || '';
+        getAllPhotoRecords().then((records) => {
+          records
+            .filter((r) => !r.manageNo || r.manageNo === curManageNo)
+            .forEach((r) => deletePhotoRecord(r.id));
+        });
+      }
    }
  }
 });
@@ -1623,14 +1699,14 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 
 <script>
-/* V51.4 모바일 터치 드래그 + 순서 저장 */
+/* V51.4 모바일 터치 드래그 (순서 저장은 IndexedDB 자동저장으로 대체되어 제거됨) */
 document.addEventListener('DOMContentLoaded',()=>{
  const gallery=document.getElementById('galleryGrid');
  if(!gallery) return;
 
  function saveOrder(){
-   const order=[...gallery.querySelectorAll('.photo-card img')].map(img=>img.src);
-   localStorage.setItem('photoOrder',JSON.stringify(order));
+   // 사용 안 함 — 예전에는 여기서 사진 base64를 통째로 localStorage에 저장했으나
+   // 용량 초과 위험이 있고 아무 곳에서도 읽어가지 않아 제거함(IndexedDB 자동저장으로 대체)
  }
 
  let touchCard=null;
@@ -1738,15 +1814,7 @@ document.addEventListener('DOMContentLoaded',()=>{
  gallery.addEventListener('touchend',()=>{
    clearTimeout(pressTimer);
 
-   const order=[];
-   gallery.querySelectorAll('.photo-card img').forEach((img,i)=>{
-      order.push({
-        no:i+1,
-        src:img.src
-      });
-   });
-
-   localStorage.setItem('photoOrderV516',JSON.stringify(order));
+   // 순서 저장은 IndexedDB 자동저장(dbSyncObserver)이 대신 처리하므로 제거됨
 
    document.querySelectorAll('.photo-card').forEach(c=>{
       c.classList.remove('dragging');
@@ -1785,11 +1853,7 @@ document.addEventListener('DOMContentLoaded',()=>{
  });
  observer.observe(gallery,{childList:true});
 
- /* 순서 자동복원 준비 */
- window.addEventListener('beforeunload',()=>{
-   const order=[...gallery.querySelectorAll('.photo-card')].map(c=>c.innerText);
-   localStorage.setItem('photoOrderBackup',JSON.stringify(order));
- });
+ /* 순서 자동복원은 IndexedDB 자동저장으로 대체되어 제거됨 */
 
  /* 성능 최적화 */
  gallery.style.contain='content';
