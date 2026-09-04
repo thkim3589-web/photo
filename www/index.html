@@ -1,9 +1,47 @@
 <!DOCTYPE html>
 <html lang="ko">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+// ---- 사진 압축 처리 모니터링 (배지 표시) + 엑셀저장 진행 상태 오버레이 ----
+// 페이지 전체 어디서나 호출할 수 있도록 전역으로 선언
+window._pendingPhotoLoads = window._pendingPhotoLoads || 0;
+
+function updatePhotoProcessingBadge(){
+  const badge = document.getElementById("photoProcessingBadge");
+  if (!badge) return;
+  const n = window._pendingPhotoLoads || 0;
+  if (n > 0) {
+    badge.style.display = "inline-block";
+    badge.textContent = `🔄 처리중 ${n}장`;
+  } else {
+    badge.style.display = "none";
+  }
+}
+
+function incPendingPhoto(){
+  window._pendingPhotoLoads = (window._pendingPhotoLoads || 0) + 1;
+  updatePhotoProcessingBadge();
+}
+
+function decPendingPhoto(){
+  window._pendingPhotoLoads = Math.max(0, (window._pendingPhotoLoads || 0) - 1);
+  updatePhotoProcessingBadge();
+}
+
+function showStatus(text){
+  const overlay = document.getElementById("statusOverlay");
+  const textEl = document.getElementById("statusText");
+  if (textEl) textEl.textContent = text;
+  if (overlay) overlay.style.display = "flex";
+}
+
+function hideStatus(){
+  const overlay = document.getElementById("statusOverlay");
+  if (overlay) overlay.style.display = "none";
+}
+</script>
 <head>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><style>
@@ -468,6 +506,24 @@ document.getElementById("excelSaveBtn").addEventListener("click", async () => {
     if (!manageNo) { alert("관리번호를 입력하세요."); return; }
     if (cards.length === 0) { alert("사진이 없습니다."); return; }
 
+    // 방금 찍은 사진이 아직 압축 처리 중이면(용량 큰 이미지, 연속 촬영 등)
+    // 완료를 기다렸다가 저장한다 — 그렇지 않으면 마지막 사진이 빈 칸으로 저장될 수 있음
+    if (window._pendingPhotoLoads > 0) {
+      const waitStart = Date.now();
+      const maxWaitMs = 15000;
+      while (window._pendingPhotoLoads > 0 && Date.now() - waitStart < maxWaitMs) {
+        showStatus(`사진 처리 중...\n(${window._pendingPhotoLoads}장 남음)`);
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      if (window._pendingPhotoLoads > 0) {
+        hideStatus();
+        alert("일부 사진 처리가 너무 오래 걸려 저장을 중단합니다.\n잠시 후 다시 시도해주세요.");
+        return;
+      }
+    }
+
+    showStatus("엑셀 파일 준비 중...");
+
     const workbook = new ExcelJS.Workbook();
     const sheetName = "사진첩";
     const photoSheet = workbook.addWorksheet(sheetName);
@@ -533,10 +589,12 @@ document.getElementById("excelSaveBtn").addEventListener("click", async () => {
 
     
 
+const missingPhotoNums = [];
+let insertedPhotoCount = 0;
 const imageTasks = cards.map(async (card,i)=>{
     try{
         const base64 = card.dataset.base64;
-        if(!base64) return;
+        if(!base64) { missingPhotoNums.push(i+1); return; }
 
         const imageId = workbook.addImage({
             base64: base64,
@@ -548,11 +606,17 @@ const imageTasks = cards.map(async (card,i)=>{
             br:{col:3+i,row:6}
         });
     }catch(e){
+        missingPhotoNums.push(i+1);
         console.error("사진 삽입 실패",e);
+    }finally{
+        insertedPhotoCount++;
+        showStatus(`사진 삽입 중...\n(${insertedPhotoCount}/${cards.length})`);
     }
 });
 
 await Promise.all(imageTasks);
+
+showStatus("엑셀 파일 생성 중...");
 
 
 
@@ -613,6 +677,7 @@ for(let r=4; r<=6; r++){
     photoSheet.getRow(3).height=40;
 
     await buildMaterialSheetV70(workbook, manageNo, managerName);
+    showStatus("파일 저장 중...");
     const excelBuffer = await workbook.xlsx.writeBuffer();
     
     
@@ -632,14 +697,23 @@ try{
 
 try{
   saveAs(blob,fileName);
+  hideStatus();
+  if (missingPhotoNums.length > 0) {
+    alert(
+      `엑셀 저장은 완료됐지만, ${missingPhotoNums.join(", ")}번 사진이 처리되지 않아 빈 칸으로 저장됐습니다.\n` +
+      `해당 사진을 확인 후 다시 저장해 주세요.`
+    );
+  }
   
 }catch(e){
+  hideStatus();
   alert("saveAs 오류\n\n" + e.message);
 }
 
 
 
 }catch(err){
+  hideStatus();
   alert('엑셀 저장 오류 : '+err.message);
   console.error(err);
 }
@@ -657,7 +731,16 @@ try{
 
 
 <body>
-<script></script>
+
+<div id="statusOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;padding:24px 28px;min-width:220px;max-width:80vw;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,0.3);">
+    <div id="statusSpinner" style="width:36px;height:36px;margin:0 auto 14px;border:4px solid #e0e0e0;border-top-color:#003399;border-radius:50%;animation:statusSpin 0.8s linear infinite;"></div>
+    <div id="statusText" style="font-weight:bold;font-size:15px;color:#222;white-space:pre-line;">처리 중...</div>
+  </div>
+</div>
+<style>
+@keyframes statusSpin { to { transform: rotate(360deg); } }
+</style>
 
 <div class="app-container">
     
@@ -798,6 +881,7 @@ id="galleryBtn">
 <div class="gallery-header">
 <span>🖼️ 현장사진 갤러리</span>
 <span class="gallery-badge">자동저장 ON</span>
+<span class="gallery-badge" id="photoProcessingBadge" style="display:none;background:#fd7e14;">🔄 처리중 0장</span>
 </div>
 <div style="font-weight:bold;font-size:14px;margin-bottom:10px;" id="photoCount">🖼️ 총 사진 : 0장 / 신규 : 0장</div>
 <div class="gallery-grid" id="galleryGrid"></div>
@@ -880,11 +964,18 @@ if(typeof selectMode!=='undefined' && !selectMode){
 
 const img=document.createElement("img");
 
+incPendingPhoto();
 
 const reader=new FileReader();
+reader.onerror=function(){
+    decPendingPhoto();
+};
 reader.onload=function(e){
 
     const source=new Image();
+    source.onerror=function(){
+        decPendingPhoto();
+    };
 
     source.onload=function(){
 
@@ -903,6 +994,7 @@ reader.onload=function(e){
 
         img.src=compressedBase64;
         card.dataset.base64=compressedBase64;
+        decPendingPhoto();
 
     };
 
@@ -2218,8 +2310,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <button id="fabCamera" title="촬영">📸</button>
 
-<button id="fabCamera" title="촬영">📸</button>
-
 <style>
 #fabCamera{
  position:fixed;
@@ -2402,6 +2492,8 @@ if ('serviceWorker' in navigator) {
 
 
 
+
+</div>
 
 </body>
 
