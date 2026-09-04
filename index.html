@@ -42,11 +42,39 @@ function hideStatus(){
   if (overlay) overlay.style.display = "none";
 }
 
-// ---- 화면에 현재 파일 버전(해시) 표시 ----
+// ---- 이번 업데이트에서 바뀐 내용 (파일 수정할 때마다 이 목록을 갱신) ----
+const CHANGELOG_LATEST = [
+  "엑셀불러오기 시 서식 자동 인식 (자체 양식 / 실무용 26년공정 리스트)",
+  "자재수량 저장을 '적용'과 '다운로드'로 분리 — 여러 건 모아서 마지막에 한 번만 다운로드",
+  "'적용' 시 공사/현행화, Eng번호, 완료여부, 작업완료일 자동 기록",
+  "사진 압축이 끝나기 전에 저장해서 사진이 빈 칸으로 누락되던 문제 수정",
+  "사진 처리 중 실시간 표시 배지 및 엑셀저장 진행 상태 오버레이 추가",
+  "화면 상단에 현재 버전 표시 추가"
+];
+
+function showUpdateNotes(){
+  const overlay = document.getElementById("updateNotesOverlay");
+  const list = document.getElementById("updateNotesList");
+  if (!overlay || !list) return;
+  list.innerHTML = "";
+  CHANGELOG_LATEST.forEach((note) => {
+    const li = document.createElement("li");
+    li.textContent = note;
+    list.appendChild(li);
+  });
+  overlay.style.display = "flex";
+}
+
+function closeUpdateNotes(){
+  const overlay = document.getElementById("updateNotesOverlay");
+  if (overlay) overlay.style.display = "none";
+}
+
+// ---- 화면에 현재 파일 버전(해시) 표시 + 업데이트 감지 시 안내 팝업 ----
 // service-worker.js가 계산하는 캐시 이름과 완전히 동일한 방식으로 계산해서 보여준다.
 document.addEventListener("DOMContentLoaded", async () => {
   const badge = document.getElementById("appVersionBadge");
-  if (!badge) return;
+  let currentVersion = null;
   try {
     const res = await fetch("./index.html", { cache: "no-store" });
     const text = await res.text();
@@ -54,9 +82,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     for (let i = 0; i < text.length; i++) {
       hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
     }
-    badge.textContent = `버전: photo-${hash.toString(36)}`;
+    currentVersion = `photo-${hash.toString(36)}`;
+    if (badge) badge.textContent = `버전: ${currentVersion}`;
   } catch (e) {
-    badge.textContent = "버전: 오프라인(확인불가)";
+    if (badge) badge.textContent = "버전: 오프라인(확인불가)";
+  }
+
+  if (currentVersion) {
+    try {
+      const lastSeen = localStorage.getItem("photoAppLastVersion");
+      if (lastSeen && lastSeen !== currentVersion) {
+        showUpdateNotes();
+      }
+      localStorage.setItem("photoAppLastVersion", currentVersion);
+    } catch (e) {
+      // 저장공간 접근 불가 환경(시크릿 모드 등)은 조용히 넘어감
+    }
   }
 });
 </script>
@@ -759,6 +800,14 @@ try{
 <style>
 @keyframes statusSpin { to { transform: rotate(360deg); } }
 </style>
+
+<div id="updateNotesOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99998;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;padding:20px 22px;max-width:85vw;max-height:75vh;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.3);">
+    <div style="font-weight:bold;font-size:16px;color:#003399;margin-bottom:10px;">✨ 새 업데이트 내용</div>
+    <ul id="updateNotesList" style="margin:0 0 16px 0;padding-left:20px;font-size:13px;color:#333;line-height:1.6;"></ul>
+    <button onclick="closeUpdateNotes()" style="width:100%;padding:10px;border:none;border-radius:8px;background:#003399;color:#fff;font-weight:bold;font-size:14px;">확인</button>
+  </div>
+</div>
 
 <div class="app-container">
     
