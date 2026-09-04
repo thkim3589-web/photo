@@ -2,7 +2,7 @@
       "relation": ["delegate_permission/common.handle_all_urls"],
       "target": {
         "namespace": "android_app",
-        "package_name": "io.github.thkim3589_web.twa",
-        "sha256_cert_fingerprints": ["89:C5:DC:10:FD:5F:46:AE:89:FC:00:5B:A4:56:BC:75:03:FF:37:65:22:22:A5:32:F8:00:C5:89:CD:AA:71:44"]
+        "package_name": "io.github.thkim3589_web.photo",
+        "sha256_cert_fingerprints": ["CB:4E:D8:F3:B1:21:FA:C3:56:4F:D0:F7:5A:F8:7A:45:A4:F2:53:C1:58:61:95:81:63:63:C5:12:99:80:70:22"]
       }
     }]

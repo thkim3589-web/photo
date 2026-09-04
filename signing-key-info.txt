@@ -1,9 +1,9 @@
 Keep this file and signing.keystore in a safe place. You'll need these files if you want to upload future versions of your PWA to the Google Play Store.
 
 Key store file: signing.keystore
-Key store password: 8QEYGypD7nmg
+Key store password: 5XIcq8DCiHnb
 Key alias: my-key-alias
-Key password: 8QEYGypD7nmg
+Key password: 5XIcq8DCiHnb
 Signer's full name: 현장사진 Admin
 Signer's organization: 현장사진관리
 Signer's organizational unit: Engineering
