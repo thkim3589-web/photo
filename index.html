@@ -3,6 +3,45 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+// ---- 사진 압축 처리 모니터링 (배지 표시) + 엑셀저장 진행 상태 오버레이 ----
+// 페이지 전체 어디서나 호출할 수 있도록 전역으로 선언
+window._pendingPhotoLoads = window._pendingPhotoLoads || 0;
+
+function updatePhotoProcessingBadge(){
+  const badge = document.getElementById("photoProcessingBadge");
+  if (!badge) return;
+  const n = window._pendingPhotoLoads || 0;
+  if (n > 0) {
+    badge.style.display = "inline-block";
+    badge.textContent = `🔄 처리중 ${n}장`;
+  } else {
+    badge.style.display = "none";
+  }
+}
+
+function incPendingPhoto(){
+  window._pendingPhotoLoads = (window._pendingPhotoLoads || 0) + 1;
+  updatePhotoProcessingBadge();
+}
+
+function decPendingPhoto(){
+  window._pendingPhotoLoads = Math.max(0, (window._pendingPhotoLoads || 0) - 1);
+  updatePhotoProcessingBadge();
+}
+
+function showStatus(text){
+  const overlay = document.getElementById("statusOverlay");
+  const textEl = document.getElementById("statusText");
+  if (textEl) textEl.textContent = text;
+  if (overlay) overlay.style.display = "flex";
+}
+
+function hideStatus(){
+  const overlay = document.getElementById("statusOverlay");
+  if (overlay) overlay.style.display = "none";
+}
+</script>
 <head>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><style>
@@ -906,44 +945,6 @@ galleryInput.onchange=()=>{
 galleryInput.value="";
 
 };
-
-// ---- 사진 압축 처리 모니터링 (배지 표시) ----
-window._pendingPhotoLoads = window._pendingPhotoLoads || 0;
-
-function updatePhotoProcessingBadge(){
-  const badge = document.getElementById("photoProcessingBadge");
-  if (!badge) return;
-  const n = window._pendingPhotoLoads || 0;
-  if (n > 0) {
-    badge.style.display = "inline-block";
-    badge.textContent = `🔄 처리중 ${n}장`;
-  } else {
-    badge.style.display = "none";
-  }
-}
-
-function incPendingPhoto(){
-  window._pendingPhotoLoads = (window._pendingPhotoLoads || 0) + 1;
-  updatePhotoProcessingBadge();
-}
-
-function decPendingPhoto(){
-  window._pendingPhotoLoads = Math.max(0, (window._pendingPhotoLoads || 0) - 1);
-  updatePhotoProcessingBadge();
-}
-
-// ---- 엑셀저장 등 긴 작업 진행 상태 오버레이 ----
-function showStatus(text){
-  const overlay = document.getElementById("statusOverlay");
-  const textEl = document.getElementById("statusText");
-  if (textEl) textEl.textContent = text;
-  if (overlay) overlay.style.display = "flex";
-}
-
-function hideStatus(){
-  const overlay = document.getElementById("statusOverlay");
-  if (overlay) overlay.style.display = "none";
-}
 
 function addPhoto(file){
 
