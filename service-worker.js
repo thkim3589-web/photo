@@ -1,5 +1,5 @@
 // 배포할 때마다 이 숫자만 올려주면(v2 -> v3 ...) 옛날 캐시가 자동으로 정리됩니다.
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = `photo-${CACHE_VERSION}`;
 
 const PRECACHE_URLS = [
