@@ -70,7 +70,9 @@ self.addEventListener('fetch', (e) => {
 
   // 화면(HTML) 요청: 온라인이면 항상 서버 최신 버전을 먼저 받아온다.
   // 오프라인일 때만 마지막으로 저장해둔 버전을 보여준다.
-  if (req.mode === 'navigate' || req.destination === 'document') {
+  // (내비게이션뿐 아니라, index.html의 버전배지 스크립트가 직접 fetch('./index.html')로
+  //  호출하는 경우도 여기서 함께 처리해야 캐시가 아닌 항상 최신본을 받아온다)
+  if (req.mode === 'navigate' || req.destination === 'document' || req.url.endsWith('/index.html')) {
     e.respondWith(
       fetch(req)
         .then((res) => {
