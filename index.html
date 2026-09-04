@@ -41,6 +41,24 @@ function hideStatus(){
   const overlay = document.getElementById("statusOverlay");
   if (overlay) overlay.style.display = "none";
 }
+
+// ---- 화면에 현재 파일 버전(해시) 표시 ----
+// service-worker.js가 계산하는 캐시 이름과 완전히 동일한 방식으로 계산해서 보여준다.
+document.addEventListener("DOMContentLoaded", async () => {
+  const badge = document.getElementById("appVersionBadge");
+  if (!badge) return;
+  try {
+    const res = await fetch("./index.html", { cache: "no-store" });
+    const text = await res.text();
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+    }
+    badge.textContent = `버전: photo-${hash.toString(36)}`;
+  } catch (e) {
+    badge.textContent = "버전: 오프라인(확인불가)";
+  }
+});
 </script>
 <head>
 
@@ -752,6 +770,8 @@ try{
 style="width:60px;min-height:auto;height:20px;border:none;background:transparent;color:white;font-weight:700;outline:none;font-size:11px;padding:0;">
 </div>
 </div>
+
+<div style="text-align:right;font-size:10px;color:#999;margin-top:-11px;margin-bottom:10px;padding-right:4px;" id="appVersionBadge">버전 확인 중...</div>
 
     
 <div class="material-box" style="margin-bottom:8px;">
