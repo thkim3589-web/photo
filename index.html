@@ -2454,6 +2454,92 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
+  // 관리번호로 찾은 행의 값을 화면 입력칸에 채워넣는다 (엑셀불러오기 / 자동조회 공용)
+  function populateFieldsFromRow(cfg, profile, headerMap, row) {
+    const getVal = (col) => {
+      if (!col) return null;
+      return row.getCell(col).value;
+    };
+
+    Object.keys(PROFILES.A.fieldMap).forEach((id) => {
+      const canonicalHeader = cfg.fieldMap[id];
+      const col = resolveFieldColumn(headerMap, profile, id, canonicalHeader);
+      const el = document.getElementById(id);
+      if (!el) return;
+      const raw = col ? getVal(col) : null;
+      const num = Number(raw);
+      el.value = Number.isFinite(num) ? num : 0;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    if (cfg.mgrHeader) {
+      const mgrCol = headerMap[cfg.mgrHeader];
+      const mgrVal = getVal(mgrCol);
+      if (mgrVal) {
+        const mgrEl = document.getElementById("managerName");
+        if (mgrEl) {
+          mgrEl.value = String(mgrVal).trim();
+          mgrEl.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      }
+    }
+
+    const lossLocationCol = headerMap["유실 위치"];
+    const lossLocationEl = document.getElementById("lossLocation");
+    if (lossLocationEl) {
+      const val = getVal(lossLocationCol);
+      lossLocationEl.value = val ? String(val).trim() : "";
+    }
+  }
+
+  // 관리번호에 해당하는 값이 없을 때(신규 관리번호) 화면 입력칸을 비운다
+  function clearMaterialFields() {
+    ["oldNail", "oldSticker", "oldSignBoard", "newNail", "newSticker", "crossing", "signBoard", "lacquer",
+     "repairNail", "repairSticker", "repairCrossing", "repairSignBoard"]
+      .forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = 0;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    const lossLocationEl = document.getElementById("lossLocation");
+    if (lossLocationEl) lossLocationEl.value = "";
+  }
+
+  // 관리번호 입력칸에서 포커스가 빠지거나 엔터를 치면, 이미 불러온 파일 안에서
+  // 자동으로 그 번호를 찾아 값을 채워준다 (파일을 다시 선택할 필요 없음)
+  let lastAutoLookupManageNo = null;
+  function tryAutoLookupManageNo() {
+    if (!workingState) return; // 아직 아무 파일도 불러온 적 없으면 아무 것도 안 함
+    const manageNoEl = document.getElementById("manageNo");
+    const manageNo = manageNoEl?.value.trim();
+    if (!manageNo || manageNo === lastAutoLookupManageNo) return;
+    lastAutoLookupManageNo = manageNo;
+
+    const { worksheet, headerRow, headerMap, profile } = workingState;
+    const cfg = PROFILES[profile];
+    const manageCol = headerMap[cfg.manageHeader];
+    if (!manageCol) return;
+
+    const matchRowNumber = findRowByManageNo(worksheet, headerMap, manageCol, headerRow, manageNo);
+    if (matchRowNumber === null) {
+      clearMaterialFields();
+      return;
+    }
+    const row = worksheet.getRow(matchRowNumber);
+    populateFieldsFromRow(cfg, profile, headerMap, row);
+  }
+
+  document.getElementById("manageNo")?.addEventListener("blur", tryAutoLookupManageNo);
+  document.getElementById("manageNo")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      tryAutoLookupManageNo();
+    }
+  });
+
   // ---------- 1) 엑셀 불러오기 ----------
   if (loadBtn && loadInput) {
     loadBtn.addEventListener("click", () => {
@@ -2545,45 +2631,8 @@ document.addEventListener("DOMContentLoaded", () => {
           }
 
           const row = worksheet.getRow(matchRowNumber);
-          const getVal = (col) => {
-            if (!col) return null;
-            return row.getCell(col).value;
-          };
-
-          // 화면 입력칸에 반영 (서식에 매칭 열이 없는 필드는 0으로)
-          Object.keys(PROFILES.A.fieldMap).forEach((id) => {
-            const canonicalHeader = cfg.fieldMap[id];
-            const col = resolveFieldColumn(headerMap, profile, id, canonicalHeader);
-            const el = document.getElementById(id);
-            if (!el) return;
-            const raw = col ? getVal(col) : null;
-            const num = Number(raw);
-            el.value = Number.isFinite(num) ? num : 0;
-            el.dispatchEvent(new Event("input", { bubbles: true }));
-            el.dispatchEvent(new Event("change", { bubbles: true }));
-          });
-
-          if (cfg.mgrHeader) {
-            const mgrCol = headerMap[cfg.mgrHeader];
-            const mgrVal = getVal(mgrCol);
-            if (mgrVal) {
-              const mgrEl = document.getElementById("managerName");
-              if (mgrEl) {
-                mgrEl.value = String(mgrVal).trim();
-                mgrEl.dispatchEvent(new Event("input", { bubbles: true }));
-              }
-            }
-          }
-
-          // 유실 위치는 기존 값이 있으면 화면에 반영 (수량은 보수 합계에서 자동 계산되므로 별도 반영 안 함)
-          {
-            const lossLocationCol = headerMap["유실 위치"];
-            const lossLocationEl = document.getElementById("lossLocation");
-            if (lossLocationEl) {
-              const val = getVal(lossLocationCol);
-              lossLocationEl.value = val ? String(val).trim() : "";
-            }
-          }
+          populateFieldsFromRow(cfg, profile, headerMap, row);
+          lastAutoLookupManageNo = manageNo;
 
           alert(
             `관리번호 "${manageNo}" 자재 내역을 불러왔습니다. (서식 ${profile})\n` +
@@ -2791,6 +2840,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const lossLocationEl = document.getElementById("lossLocation");
           if (lossLocationEl) lossLocationEl.value = "";
         }
+        lastAutoLookupManageNo = null;
 
       } catch (err) {
         alert("적용 오류: " + err.message);
