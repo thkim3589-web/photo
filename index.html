@@ -976,9 +976,13 @@ style="width:60px;min-height:auto;height:20px;border:none;background:transparent
     
 <div class="material-box" style="margin-bottom:8px;">
     <div style="font-size:16px;font-weight:bold;margin-bottom:5px;">📋 관리번호</div>
-    <input type="text" id="manageNo" value=""
-           placeholder="관리번호 입력"
-           style="width:100%;height:40px;font-size:16px;font-weight:bold;text-align:center;border:1px solid #ccc;border-radius:8px;">
+    <div style="display:flex; gap:6px;">
+        <input type="text" id="manageNo" value=""
+               placeholder="관리번호 입력"
+               style="flex:1;height:40px;font-size:16px;font-weight:bold;text-align:center;border:1px solid #ccc;border-radius:8px;">
+        <button type="button" id="manageNoSearchBtn"
+                style="width:48px;height:40px;font-size:16px;border:none;border-radius:8px;background:#0056b3;color:#fff;">🔍</button>
+    </div>
     <div id="currentManageNo" style="margin-top:6px;font-weight:bold;color:#003399;font-size:11px;">
         관리번호 : 달서구CD12345
     </div>
@@ -2353,7 +2357,9 @@ document.addEventListener("DOMContentLoaded", () => {
     return m ? Number(m[1]) : null;
   }
 
-  function detectSheetProfile(workbook, manageNo) {
+  // 매칭 가능한(관리번호 계열 헤더가 있는) 모든 시트 후보를 한 번만 스캔해서 모아둔다.
+  // 이후 관리번호가 바뀔 때마다 이 목록 안에서 다시 고르면 되므로, 파일을 다시 읽을 필요가 없다.
+  function collectCandidateSheets(workbook) {
     const candidates = [];
     for (const worksheet of workbook.worksheets) {
       const maxScan = Math.min(10, worksheet.rowCount || 10);
@@ -2369,20 +2375,15 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
     }
+    return candidates;
+  }
 
-    if (candidates.length === 0) {
-      const worksheet = workbook.worksheets[0];
-      return {
-        worksheet,
-        headerRow: 1,
-        headerMap: worksheet ? buildHeaderMapAtRow(worksheet, 1) : {},
-        profile: "A",
-      };
-    }
-
+  // 여러 후보 시트 중 지금 입력한 관리번호에 맞는 시트를 고른다.
+  // (24년 시트에서 검색하다가 25년 관리번호를 입력해도 이 함수가 다시 올바른 시트를 찾아준다)
+  function pickCandidateForManageNo(candidates, manageNo) {
+    if (!candidates || candidates.length === 0) return null;
     if (candidates.length === 1) return candidates[0];
 
-    // 후보가 여러 개면, 입력한 관리번호가 실제로 있는 시트를 우선 사용
     if (manageNo) {
       for (const c of candidates) {
         const manageCol = c.headerMap[PROFILES[c.profile].manageHeader];
@@ -2403,6 +2404,24 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
     return best;
+  }
+
+  function detectSheetProfile(workbook, manageNo) {
+    const candidates = collectCandidateSheets(workbook);
+
+    if (candidates.length === 0) {
+      const worksheet = workbook.worksheets[0];
+      return {
+        worksheet,
+        headerRow: 1,
+        headerMap: worksheet ? buildHeaderMapAtRow(worksheet, 1) : {},
+        profile: "A",
+        candidates: [],
+      };
+    }
+
+    const picked = pickCandidateForManageNo(candidates, manageNo);
+    return { ...picked, candidates };
   }
 
   function findRowByManageNo(worksheet, headerMap, manageHeaderCol, headerRow, manageNo) {
@@ -2463,12 +2482,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const y = today.getFullYear();
     const m = String(today.getMonth() + 1).padStart(2, "0");
     const d = String(today.getDate()).padStart(2, "0");
+    const headerMap = buildHeaderMapAtRow(worksheet, 1);
     return {
       workbook,
       worksheet,
       headerRow: 1,
-      headerMap: buildHeaderMapAtRow(worksheet, 1),
+      headerMap,
       profile: "A",
+      candidates: [{ worksheet, headerRow: 1, headerMap, profile: "A" }],
       matchRowNumber: null,
       fileName: `자재수량관리_${y}${m}${d}.xlsx`,
       loadedManageNo: null,
@@ -2533,26 +2554,64 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 관리번호 입력칸에서 포커스가 빠지거나 엔터를 치면, 이미 불러온 파일 안에서
   // 자동으로 그 번호를 찾아 값을 채워준다 (파일을 다시 선택할 필요 없음)
+  // 자재 항목에 이미 값이 입력되어 있는지 확인 (자동조회가 함부로 덮어쓰지 않기 위함)
+  function hasEnteredMaterialData() {
+    const ids = ["oldNail", "oldSticker", "oldSignBoard", "newNail", "newSticker", "crossing", "signBoard", "lacquer",
+                 "repairNail", "repairSticker", "repairCrossing", "repairSignBoard"];
+    const hasQty = ids.some((id) => Number(document.getElementById(id)?.value || 0) > 0);
+    const hasLocation = (document.getElementById("lossLocation")?.value || "").trim() !== "";
+    return hasQty || hasLocation;
+  }
+
   let lastAutoLookupManageNo = null;
-  function tryAutoLookupManageNo() {
+  function tryAutoLookupManageNo(force) {
     if (!workingState) return; // 아직 아무 파일도 불러온 적 없으면 아무 것도 안 함
     const manageNoEl = document.getElementById("manageNo");
     const manageNo = manageNoEl?.value.trim();
-    if (!manageNo || manageNo === lastAutoLookupManageNo) return;
+    if (!manageNo || (!force && manageNo === lastAutoLookupManageNo)) return;
+
+    // 이미 입력해둔 수량/위치가 있으면 함부로 지우거나 덮어쓰지 않는다.
+    if (hasEnteredMaterialData()) {
+      if (!force) return; // 자동조회(포커스아웃/엔터)는 조용히 건너뜀
+      const ok = confirm(
+        "이미 입력된 자재 수량(또는 위치)이 있습니다.\n" +
+        "다시 조회하면 지금 입력한 내용이 사라지고 새로 조회한 값으로 바뀝니다.\n\n" +
+        "계속할까요?"
+      );
+      if (!ok) return;
+    }
+
     lastAutoLookupManageNo = manageNo;
 
-    const { worksheet, headerRow, headerMap, profile } = workingState;
-    const cfg = PROFILES[profile];
-    const manageCol = headerMap[cfg.manageHeader];
-    if (!manageCol) return;
+    // 한 파일에 여러 연도 시트가 섞여 있을 수 있으므로, 지금 입력한 관리번호 기준으로
+    // 어느 시트를 봐야 하는지 다시 고른다 (24년 시트 보다가 25년 번호를 입력해도 안전)
+    const candidates = (workingState.candidates && workingState.candidates.length > 0)
+      ? workingState.candidates
+      : [{ worksheet: workingState.worksheet, headerRow: workingState.headerRow, headerMap: workingState.headerMap, profile: workingState.profile }];
 
-    const matchRowNumber = findRowByManageNo(worksheet, headerMap, manageCol, headerRow, manageNo);
+    const picked = pickCandidateForManageNo(candidates, manageNo);
+    if (!picked) return;
+
+    // 다음 "적용"이 같은 시트를 보도록 workingState를 갱신해둔다
+    workingState.worksheet = picked.worksheet;
+    workingState.headerRow = picked.headerRow;
+    workingState.headerMap = picked.headerMap;
+    workingState.profile = picked.profile;
+
+    const cfg = PROFILES[picked.profile];
+    const manageCol = picked.headerMap[cfg.manageHeader];
+    if (!manageCol) {
+      clearMaterialFields();
+      return;
+    }
+
+    const matchRowNumber = findRowByManageNo(picked.worksheet, picked.headerMap, manageCol, picked.headerRow, manageNo);
     if (matchRowNumber === null) {
       clearMaterialFields();
       return;
     }
-    const row = worksheet.getRow(matchRowNumber);
-    populateFieldsFromRow(cfg, profile, headerMap, row);
+    const row = picked.worksheet.getRow(matchRowNumber);
+    populateFieldsFromRow(cfg, picked.profile, picked.headerMap, row);
   }
 
   document.getElementById("manageNo")?.addEventListener("blur", tryAutoLookupManageNo);
@@ -2561,6 +2620,20 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       tryAutoLookupManageNo();
     }
+  });
+  document.getElementById("manageNoSearchBtn")?.addEventListener("click", () => {
+    if (!workingState) {
+      alert("먼저 '📥 엑셀불러오기'로 파일을 불러오세요.");
+      return;
+    }
+    const manageNoEl = document.getElementById("manageNo");
+    if (!manageNoEl?.value.trim()) {
+      alert("관리번호를 입력하세요.");
+      manageNoEl?.focus();
+      return;
+    }
+    lastAutoLookupManageNo = null; // 값이 안 바뀌었어도 항상 강제로 다시 조회
+    tryAutoLookupManageNo(true);
   });
 
   // ---------- 1) 엑셀 불러오기 ----------
@@ -2612,7 +2685,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const workbook = new ExcelJS.Workbook();
           await workbook.xlsx.load(ev.target.result);
 
-          const { worksheet, headerRow, headerMap, profile } = detectSheetProfile(workbook, manageNo);
+          const { worksheet, headerRow, headerMap, profile, candidates } = detectSheetProfile(workbook, manageNo);
 
           if (!worksheet) {
             alert("엑셀에서 시트를 찾을 수 없습니다.");
@@ -2635,6 +2708,7 @@ document.addEventListener("DOMContentLoaded", () => {
             headerRow,
             headerMap,
             profile,
+            candidates, // 한 파일에 여러 연도 시트가 섞여 있을 때, 관리번호별로 다시 고르기 위해 보관
             matchRowNumber, // null이면 리스트에 없던 신규 관리번호
             fileName: file.name,
             loadedManageNo: manageNo,
@@ -2720,6 +2794,20 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!workingState) {
           workingState = createFreshWorkbook();
           updateLoadBtnUI();
+        }
+
+        // 한 파일에 여러 연도 시트가 섞여 있을 수 있으므로, 지금 적용하는 관리번호 기준으로
+        // 어느 시트에 써야 하는지 다시 확인한다 (24년 시트 보다가 25년 번호를 적용해도 안전)
+        {
+          const candidates = (workingState.candidates && workingState.candidates.length > 0)
+            ? workingState.candidates
+            : [{ worksheet: workingState.worksheet, headerRow: workingState.headerRow, headerMap: workingState.headerMap, profile: workingState.profile }];
+          const picked = pickCandidateForManageNo(candidates, manageNo);
+          if (picked) {
+            workingState.worksheet = picked.worksheet;
+            workingState.headerRow = picked.headerRow;
+            workingState.profile = picked.profile;
+          }
         }
 
         const { workbook, worksheet, headerRow, profile } = workingState;
