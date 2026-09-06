@@ -2622,18 +2622,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
   document.getElementById("manageNoSearchBtn")?.addEventListener("click", () => {
-    if (!workingState) {
-      alert("먼저 '📥 엑셀불러오기'로 파일을 불러오세요.");
-      return;
-    }
+    if (!workingState) return;
     const manageNoEl = document.getElementById("manageNo");
-    if (!manageNoEl?.value.trim()) {
-      alert("관리번호를 입력하세요.");
-      manageNoEl?.focus();
-      return;
-    }
-    lastAutoLookupManageNo = null; // 값이 안 바뀌었어도 항상 강제로 다시 조회
-    tryAutoLookupManageNo(true);
+    if (!manageNoEl?.value.trim()) return;
+    lastAutoLookupManageNo = null; // 값이 안 바뀌었어도 항상 다시 조회
+    tryAutoLookupManageNo();
   });
 
   // ---------- 1) 엑셀 불러오기 ----------
