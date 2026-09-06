@@ -2581,48 +2581,95 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // styles.xml에서 "날짜로 보이는" 스타일 하나를 찾아 인덱스를 반환한다.
-  function findDateStyleIndex(stylesXml) {
-    const BUILTIN_DATE_IDS = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 45, 46, 47]);
-    const customFormats = {};
-    const numFmtsBlock = stylesXml.match(/<numFmts[^>]*>([\s\S]*?)<\/numFmts>/);
-    if (numFmtsBlock) {
-      const re = /<numFmt numFmtId="(\d+)" formatCode="([^"]*)"/g;
-      let m;
-      while ((m = re.exec(numFmtsBlock[1])) !== null) {
-        customFormats[m[1]] = m[2];
-      }
-    }
-
-    // 서식 코드에서 리터럴 문자열("...")과 [Red] 같은 색상/조건 대괄호를 제거한 뒤,
-    // 남은 부분에 y/m/d/h/s(날짜·시간 기호)가 있는지 본다.
-    // ([Red]처럼 색상 이름 안에 우연히 'd'가 들어있어 날짜로 오인하는 것을 방지)
-    function looksLikeDateFormat(code) {
-      let c = code.replace(/&quot;[^&]*&quot;/g, "");
-      c = c.replace(/\[[^\]]*\]/g, (bracket) => (/^\[[hms]{1,2}\]$/i.test(bracket) ? bracket : ""));
-      return /[ymdhs]/i.test(c);
-    }
-
+  // 원본 셀의 스타일(테두리·배경·폰트)은 그대로 두고 숫자서식만 "날짜"로 바꾼
+  // 새 스타일을 만들어준다 (통째로 다른 스타일로 바꾸면 테두리가 사라지는 문제 방지).
+  // 같은 원본 스타일에 대해서는 한 번만 만들고 재사용한다.
+  function createDateStyleContext(stylesXml) {
     const cellXfsBlock = stylesXml.match(/<cellXfs count="(\d+)">([\s\S]*?)<\/cellXfs>/);
-    if (!cellXfsBlock) return null;
-    const xfRe = /<xf[^/]*?\/?>/g;
-    let xm, idx = 0;
-    while ((xm = xfRe.exec(cellXfsBlock[2])) !== null) {
-      const idMatch = xm[0].match(/numFmtId="(\d+)"/);
-      if (idMatch) {
-        const id = idMatch[1];
-        if (BUILTIN_DATE_IDS.has(Number(id))) return idx;
-        const code = customFormats[id];
-        if (code && looksLikeDateFormat(code)) return idx;
+    const originalCount = cellXfsBlock ? Number(cellXfsBlock[1]) : 0;
+    // <xf .../> 또는 <xf ...>...(하위 태그)...</xf> 형태를 정확히 하나씩 추출
+    const xfElRe = /<xf\b[^>]*?(?:\/>|>(?:(?!<\/xf>)[\s\S])*?<\/xf>)/g;
+    const xfList = cellXfsBlock ? (cellXfsBlock[2].match(xfElRe) || []) : [];
+    const cache = new Map();
+    let fallbackDateIdx = null;
+
+    // 원본 스타일 정보를 전혀 모를 때(신규 셀 등)를 위한 최후의 수단:
+    // 파일 안에서 이미 진짜 날짜서식으로 쓰이고 있는 스타일을 하나 찾아 재사용한다.
+    function findAnyDateStyleIndex() {
+      const BUILTIN_DATE_IDS = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 45, 46, 47]);
+      const customFormats = {};
+      const numFmtsBlock = stylesXml.match(/<numFmts[^>]*>([\s\S]*?)<\/numFmts>/);
+      if (numFmtsBlock) {
+        const re = /<numFmt numFmtId="(\d+)" formatCode="([^"]*)"/g;
+        let m;
+        while ((m = re.exec(numFmtsBlock[1])) !== null) customFormats[m[1]] = m[2];
       }
-      idx++;
+      // 리터럴 문자열/[Red] 같은 색상·조건 대괄호를 제거한 뒤 y/m/d/h/s가 남는지로 판별
+      // ([Red]처럼 색상 이름 안에 우연히 'd'가 들어있어 날짜로 오인하는 것을 방지)
+      function looksLikeDateFormat(code) {
+        let c = code.replace(/&quot;[^&]*&quot;/g, "");
+        c = c.replace(/\[[^\]]*\]/g, (bracket) => (/^\[[hms]{1,2}\]$/i.test(bracket) ? bracket : ""));
+        return /[ymdhs]/i.test(c);
+      }
+      for (let i = 0; i < xfList.length; i++) {
+        const idMatch = xfList[i].match(/numFmtId="(\d+)"/);
+        if (!idMatch) continue;
+        const id = idMatch[1];
+        if (BUILTIN_DATE_IDS.has(Number(id))) return i;
+        const code = customFormats[id];
+        if (code && looksLikeDateFormat(code)) return i;
+      }
+      return null;
     }
-    return null;
+
+    // origIdx 스타일을 복제해서 numFmtId만 14(내장 날짜서식)로 바꾼 새 스타일을 cellXfs에 추가
+    function cloneAsDate(origIdx) {
+      const orig = xfList[origIdx];
+      if (!orig) return null;
+      let cloned = orig;
+      if (/numFmtId="\d+"/.test(cloned)) {
+        cloned = cloned.replace(/numFmtId="\d+"/, 'numFmtId="14"');
+      } else {
+        cloned = cloned.replace(/^<xf\b/, '<xf numFmtId="14"');
+      }
+      if (!/applyNumberFormat="1"/.test(cloned)) {
+        cloned = cloned.replace(/^<xf\b/, '<xf applyNumberFormat="1"');
+      }
+      const newIdx = xfList.length;
+      xfList.push(cloned);
+      return newIdx;
+    }
+
+    return {
+      // origStyleIndex: 그 셀이 원래 갖고 있던 s 속성값(문자열/숫자) 또는 null
+      getDateStyleForOriginal(origStyleIndexRaw) {
+        const origIdx = (origStyleIndexRaw !== null && origStyleIndexRaw !== undefined) ? Number(origStyleIndexRaw) : null;
+        const key = origIdx === null ? "__none__" : origIdx;
+        if (cache.has(key)) return cache.get(key);
+        let result = null;
+        if (origIdx !== null) result = cloneAsDate(origIdx);
+        if (result === null || result === undefined) {
+          if (fallbackDateIdx === null) fallbackDateIdx = findAnyDateStyleIndex();
+          result = fallbackDateIdx;
+        }
+        cache.set(key, result);
+        return result;
+      },
+      // 세션 중 새로 추가된 스타일이 있으면 styles.xml 텍스트를 갱신해서 반환
+      serialize() {
+        if (xfList.length === originalCount) return stylesXml;
+        const newBlock = `<cellXfs count="${xfList.length}">${xfList.join("")}</cellXfs>`;
+        return stylesXml.replace(/<cellXfs count="\d+">[\s\S]*?<\/cellXfs>/, newBlock);
+      },
+    };
   }
 
-  function buildCellXml(ref, sAttr, cell, dateStyleIndex) {
-    const effectiveS = (cell.type === "date" && dateStyleIndex !== null && dateStyleIndex !== undefined)
-      ? dateStyleIndex
-      : sAttr;
+  function buildCellXml(ref, sAttr, cell, styleCtx) {
+    let effectiveS = sAttr;
+    if (cell.type === "date" && styleCtx) {
+      const dateIdx = styleCtx.getDateStyleForOriginal(sAttr);
+      if (dateIdx !== null && dateIdx !== undefined) effectiveS = dateIdx;
+    }
     const sPart = effectiveS !== null && effectiveS !== undefined ? ` s="${effectiveS}"` : "";
     if (cell.type === "text") {
       if (cell.value === "" || cell.value === null || cell.value === undefined) {
@@ -2636,7 +2683,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return `<c r="${ref}"${sPart}><v>${cell.value}</v></c>`;
   }
 
-  function patchCellInRowInner(rowInner, colLetter, rowNum, cellSpec, dateStyleIndex) {
+  function patchCellInRowInner(rowInner, colLetter, rowNum, cellSpec, styleCtx) {
     const ref = colLetter + rowNum;
     const cellRe = new RegExp('<c r="' + ref + '"[^>]*?(?:/>|>[\\s\\S]*?</c>)');
     const m = rowInner.match(cellRe);
@@ -2646,7 +2693,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const sMatch = m[0].match(/ s="(\d+)"/);
       if (sMatch) sAttr = sMatch[1];
     }
-    const newCellXml = buildCellXml(ref, sAttr, cellSpec, dateStyleIndex);
+    const newCellXml = buildCellXml(ref, sAttr, cellSpec, styleCtx);
 
     if (m) {
       return rowInner.slice(0, m.index) + newCellXml + rowInner.slice(m.index + m[0].length);
@@ -2666,7 +2713,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // sheetXml 안에서 rowNum 행을 찾아 cells를 패치한다.
   // 그 행이 원본에 없으면(신규 행) templateRowNum 행을 복제해 틀을 만들고 값은 비운 뒤 채운다.
-  function patchRow(sheetXml, rowNum, cells, templateRowNum, dateStyleIndex) {
+  function patchRow(sheetXml, rowNum, cells, templateRowNum, styleCtx) {
     const rowRe = new RegExp('<row r="' + rowNum + '"[^>]*?(?:/>|>[\\s\\S]*?</row>)');
     const m = sheetXml.match(rowRe);
 
@@ -2678,7 +2725,7 @@ document.addEventListener("DOMContentLoaded", () => {
       let inner = isSelfClosing ? "" : rowBlock.slice(openTag.length, rowBlock.length - "</row>".length);
 
       cells.forEach((cellSpec) => {
-        inner = patchCellInRowInner(inner, cellSpec.col, rowNum, cellSpec, dateStyleIndex);
+        inner = patchCellInRowInner(inner, cellSpec.col, rowNum, cellSpec, styleCtx);
       });
 
       const newRowBlock = openTag + inner + "</row>";
@@ -2709,7 +2756,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let newInner = blankCells;
     cells.forEach((cellSpec) => {
-      newInner = patchCellInRowInner(newInner, cellSpec.col, rowNum, cellSpec, dateStyleIndex);
+      newInner = patchCellInRowInner(newInner, cellSpec.col, rowNum, cellSpec, styleCtx);
     });
 
     const newRowBlock = `<row r="${rowNum}"${rowAttrs}>${newInner}</row>`;
@@ -2756,7 +2803,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const workbookXml = await zip.file("xl/workbook.xml").async("string");
     const relsXml = await zip.file("xl/_rels/workbook.xml.rels").async("string");
     const stylesXml = await zip.file("xl/styles.xml").async("string");
-    const dateStyleIndex = findDateStyleIndex(stylesXml);
+    const styleCtx = createDateStyleContext(stylesXml);
 
     for (const [sheetName, rowPatches] of patchesBySheet.entries()) {
       const path = resolveWorksheetPath(workbookXml, relsXml, sheetName);
@@ -2764,9 +2811,15 @@ document.addEventListener("DOMContentLoaded", () => {
       let sheetXml = await zip.file(path).async("string");
       const sorted = rowPatches.slice().sort((a, b) => a.rowNum - b.rowNum);
       for (const rp of sorted) {
-        sheetXml = patchRow(sheetXml, rp.rowNum, rp.cells, rp.templateRowNum, dateStyleIndex);
+        sheetXml = patchRow(sheetXml, rp.rowNum, rp.cells, rp.templateRowNum, styleCtx);
       }
       zip.file(path, sheetXml);
+    }
+
+    // 날짜 서식용으로 스타일이 새로 추가됐으면 styles.xml도 함께 갱신
+    const finalStylesXml = styleCtx.serialize();
+    if (finalStylesXml !== stylesXml) {
+      zip.file("xl/styles.xml", finalStylesXml);
     }
 
     return await zip.generateAsync({
