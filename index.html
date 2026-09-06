@@ -42,33 +42,41 @@ function hideStatus(){
   if (overlay) overlay.style.display = "none";
 }
 
-// ---- 이번 업데이트에서 바뀐 내용 (파일 수정할 때마다 이 목록을 갱신) ----
+// ---- 이번 업데이트에서 바뀐 내용 ----
+// 새 항목을 추가할 때는 항상 "가장 큰 id + 1"로 번호를 매겨서 맨 아래에 추가한다.
+// (처음 방문한 사용자에게는 전체를 보여주고, 이후에는 지난번에 본 id보다 큰 것만 보여주기 위함)
 const CHANGELOG_LATEST = [
-  "[중요] 관리번호를 바꾼 뒤 사진을 추가/재정렬하면 이전 현장 사진의 관리번호가 잘못 덮어써지던 문제 수정",
-  "[중요] 다른 관리번호로 전환 시 이전 현장의 저장된 사진이 삭제되던 심각한 버그 수정",
-  "'전체 삭제' 시 저장소도 명시적으로 함께 삭제하도록 이중 안전장치 추가",
-  "엑셀저장 시 사진이 하나라도 누락되면 빈 칸으로 저장하지 않고 저장 자체를 중단하도록 변경",
-  "사진 저장이 관리번호와 연결되도록 수정 (다른 현장 사진이 섞여 나오던 문제)",
-  "사진 삭제/재정렬 시 '신규' 개수 표시가 사라지던 표시 오류 수정",
-  "쓰이지 않던 예전 순서저장 코드(용량 위험 있던 것 포함) 정리",
-  "'자동저장 ON' 배지를 눌러서 실제로 켜고 끌 수 있는 토글로 변경",
-  "사진이 '자동저장 ON' 표시대로 실제로 자동저장되도록 구현 (새로고침/앱 종료 후에도 사진 유지)",
-  "엑셀불러오기 시 서식 자동 인식 (자체 양식 / 실무용 26년공정 리스트)",
-  "자재수량 저장을 '적용'과 '다운로드'로 분리 — 여러 건 모아서 마지막에 한 번만 다운로드",
-  "'적용' 시 공사/현행화, Eng번호, 완료여부, 작업완료일 자동 기록",
-  "사진 압축이 끝나기 전에 저장해서 사진이 빈 칸으로 누락되던 문제 수정",
-  "사진 처리 중 실시간 표시 배지 및 엑셀저장 진행 상태 오버레이 추가",
-  "화면 상단에 현재 버전 표시 추가"
+  { id: 1, text: "[중요] 관리번호를 바꾼 뒤 사진을 추가/재정렬하면 이전 현장 사진의 관리번호가 잘못 덮어써지던 문제 수정" },
+  { id: 2, text: "[중요] 다른 관리번호로 전환 시 이전 현장의 저장된 사진이 삭제되던 심각한 버그 수정" },
+  { id: 3, text: "'전체 삭제' 시 저장소도 명시적으로 함께 삭제하도록 이중 안전장치 추가" },
+  { id: 4, text: "엑셀저장 시 사진이 하나라도 누락되면 빈 칸으로 저장하지 않고 저장 자체를 중단하도록 변경" },
+  { id: 5, text: "사진 저장이 관리번호와 연결되도록 수정 (다른 현장 사진이 섞여 나오던 문제)" },
+  { id: 6, text: "사진 삭제/재정렬 시 '신규' 개수 표시가 사라지던 표시 오류 수정" },
+  { id: 7, text: "쓰이지 않던 예전 순서저장 코드(용량 위험 있던 것 포함) 정리" },
+  { id: 8, text: "'자동저장 ON' 배지를 눌러서 실제로 켜고 끌 수 있는 토글로 변경" },
+  { id: 9, text: "사진이 '자동저장 ON' 표시대로 실제로 자동저장되도록 구현 (새로고침/앱 종료 후에도 사진 유지)" },
+  { id: 10, text: "엑셀불러오기 시 서식 자동 인식 (자체 양식 / 실무용 26년공정 리스트)" },
+  { id: 11, text: "자재수량 저장을 '적용'과 '다운로드'로 분리 — 여러 건 모아서 마지막에 한 번만 다운로드" },
+  { id: 12, text: "'적용' 시 공사/현행화, Eng번호, 완료여부, 작업완료일 자동 기록" },
+  { id: 13, text: "사진 압축이 끝나기 전에 저장해서 사진이 빈 칸으로 누락되던 문제 수정" },
+  { id: 14, text: "사진 처리 중 실시간 표시 배지 및 엑셀저장 진행 상태 오버레이 추가" },
+  { id: 15, text: "화면 상단에 현재 버전 표시 추가" },
+  { id: 16, text: "자재수량관리에 '보수' 항목 추가 (신설과 동일하게 못/스티커/횡단/표지판)" },
+  { id: 17, text: "엑셀불러오기 24/25/26년 파일 간 열 이름 차이(줄바꿈, '신설'↔'신규/정상' 등) 자동 보정" },
+  { id: 18, text: "한 파일에 여러 연도 시트가 섞여 있어도 관리번호가 실제로 있는 시트를 자동으로 찾도록 개선" },
+  { id: 19, text: "'보수'와 '유실점검'을 하나로 합쳐 유실 수량·위치·조치결과·확인일 자동 기록" },
+  { id: 20, text: "관리번호 입력 후 포커스를 벗어나거나 엔터를 치면 자동으로 기존 값 조회" },
+  { id: 21, text: "업데이트 안내를 처음엔 전체, 이후에는 새로 추가된 내용만 보여주도록 변경" },
 ];
 
-function showUpdateNotes(){
+function showUpdateNotes(notes){
   const overlay = document.getElementById("updateNotesOverlay");
   const list = document.getElementById("updateNotesList");
   if (!overlay || !list) return;
   list.innerHTML = "";
-  CHANGELOG_LATEST.forEach((note) => {
+  notes.forEach((note) => {
     const li = document.createElement("li");
-    li.textContent = note;
+    li.textContent = note.text;
     list.appendChild(li);
   });
   overlay.style.display = "flex";
@@ -99,14 +107,29 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (currentVersion) {
     try {
-      const lastSeen = localStorage.getItem("photoAppLastVersion");
-      if (lastSeen && lastSeen !== currentVersion) {
-        showUpdateNotes();
-      }
       localStorage.setItem("photoAppLastVersion", currentVersion);
     } catch (e) {
       // 저장공간 접근 불가 환경(시크릿 모드 등)은 조용히 넘어감
     }
+  }
+
+  // ---- 업데이트 안내: 처음 방문이면 전체, 그 이후엔 지난번에 본 것보다 새 항목만 ----
+  try {
+    const maxId = CHANGELOG_LATEST.reduce((m, n) => Math.max(m, n.id), 0);
+    const lastSeenRaw = localStorage.getItem("photoAppLastChangelogId");
+    if (lastSeenRaw === null) {
+      // 처음 방문: 전체 목록을 보여준다
+      showUpdateNotes(CHANGELOG_LATEST);
+    } else {
+      const lastSeenId = Number(lastSeenRaw) || 0;
+      const newNotes = CHANGELOG_LATEST.filter((n) => n.id > lastSeenId);
+      if (newNotes.length > 0) {
+        showUpdateNotes(newNotes);
+      }
+    }
+    localStorage.setItem("photoAppLastChangelogId", String(maxId));
+  } catch (e) {
+    // 저장공간 접근 불가 환경(시크릿 모드 등)은 조용히 넘어감
   }
 });
 
