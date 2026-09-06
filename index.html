@@ -1079,7 +1079,7 @@ style="width:60px;min-height:auto;height:20px;border:none;background:transparent
 
         <div class="material-group repair-group">
             <div class="material-group-header">
-                <div class="material-group-title">🔍 유실점검 <span class="group-toggle-icon">▾</span></div>
+                <div class="material-group-title">🔵 유실점검 <span class="group-toggle-icon">▾</span></div>
                 <div class="group-total-badge">합계
                     <input type="number" id="repairBox" value="0" readonly>
                 </div>
@@ -1119,10 +1119,23 @@ style="width:60px;min-height:auto;height:20px;border:none;background:transparent
                 </div>
             </div>
             <div class="loss-location-row">
-                <div style="display:flex; gap:6px; align-items:center; margin-top:6px;">
-                    <label style="font-size:12px; font-weight:bold; width:40px;">위치</label>
-                    <input type="text" id="lossLocation"
-                           style="flex:1; height:28px; font-size:12px; border:1px solid #ccc; border-radius:6px; padding:0 6px;">
+                <div style="margin-top:6px;">
+                    <label style="font-size:12px; font-weight:bold;">위치</label>
+                    <div class="loss-location-options" style="display:flex; gap:6px; margin-top:4px; flex-wrap:wrap;">
+                        <button type="button" class="loc-btn" data-value="경계석"
+                                style="flex:1;min-width:60px;font-size:11px;font-weight:600;padding:6px 0;border:none;border-radius:999px;background:#eef0f3;color:#555;">경계석</button>
+                        <button type="button" class="loc-btn" data-value="도로"
+                                style="flex:1;min-width:60px;font-size:11px;font-weight:600;padding:6px 0;border:none;border-radius:999px;background:#eef0f3;color:#555;">도로</button>
+                        <button type="button" class="loc-btn" data-value="사리도"
+                                style="flex:1;min-width:60px;font-size:11px;font-weight:600;padding:6px 0;border:none;border-radius:999px;background:#eef0f3;color:#555;">사리도</button>
+                        <button type="button" class="loc-btn" data-value="인도블럭"
+                                style="flex:1;min-width:60px;font-size:11px;font-weight:600;padding:6px 0;border:none;border-radius:999px;background:#eef0f3;color:#555;">인도블럭</button>
+                        <button type="button" class="loc-btn" data-value="__custom__"
+                                style="flex:1;min-width:60px;font-size:11px;font-weight:600;padding:6px 0;border:none;border-radius:999px;background:#eef0f3;color:#555;">직접입력</button>
+                    </div>
+                    <input type="text" id="lossLocationCustom" placeholder="위치 직접 입력"
+                           style="display:none; margin-top:5px; width:100%; height:28px; font-size:12px; border:1px solid #ccc; border-radius:6px; padding:0 6px; box-sizing:border-box;">
+                    <input type="hidden" id="lossLocation" value="">
                 </div>
                 <div style="font-size:10px;color:#888;margin-top:4px;">
                     합계 수량이 그대로 유실 수량으로, 위 항목은 조치결과에 자동 정리되어 기록됩니다.
@@ -1497,6 +1510,97 @@ document.addEventListener('DOMContentLoaded', () => {
       if(group) group.classList.toggle('expanded');
     });
   });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const customInput = document.getElementById('lossLocationCustom');
+  const hiddenInput = document.getElementById('lossLocation');
+
+  function selectLocBtn(btn) {
+    document.querySelectorAll('.loss-location-options .loc-btn').forEach(b => {
+      b.classList.remove('active');
+      b.style.background = '#eef0f3';
+      b.style.color = '#555';
+    });
+    if (btn) {
+      btn.classList.add('active');
+      btn.style.background = '#0b3d91';
+      btn.style.color = '#fff';
+    }
+  }
+
+  document.querySelectorAll('.loss-location-options .loc-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const alreadyActive = btn.classList.contains('active');
+
+      if (alreadyActive) {
+        // 이미 선택된 버튼을 다시 누르면 선택 취소
+        selectLocBtn(null);
+        if (customInput) {
+          customInput.style.display = 'none';
+          customInput.value = '';
+        }
+        if (hiddenInput) hiddenInput.value = '';
+        return;
+      }
+
+      selectLocBtn(btn);
+      if (btn.dataset.value === '__custom__') {
+        if (customInput) {
+          customInput.style.display = 'block';
+          customInput.focus();
+        }
+        if (hiddenInput) hiddenInput.value = (customInput?.value || '').trim();
+      } else {
+        if (customInput) customInput.style.display = 'none';
+        if (hiddenInput) hiddenInput.value = btn.dataset.value;
+      }
+    });
+  });
+
+  customInput?.addEventListener('input', () => {
+    if (hiddenInput) hiddenInput.value = customInput.value.trim();
+  });
+
+  // 화면 리셋(다음 건 작업 준비)에서 호출할 수 있도록 전역에 노출
+  window._resetLossLocationUI = function () {
+    selectLocBtn(null);
+    if (customInput) {
+      customInput.value = '';
+      customInput.style.display = 'none';
+    }
+    if (hiddenInput) hiddenInput.value = '';
+  };
+
+  // 엑셀에서 불러온 기존 값을 화면에 반영할 때 호출 (경계석/도로/사리도 중 하나면 그 버튼 선택,
+  // 아니면 '직접입력'을 선택하고 텍스트로 채워준다)
+  window._applyLossLocationToUI = function (value) {
+    const val = (value || '').trim();
+    if (!val) {
+      window._resetLossLocationUI();
+      return;
+    }
+    const fixedBtn = Array.from(document.querySelectorAll('.loss-location-options .loc-btn'))
+      .find(b => b.dataset.value === val);
+    if (fixedBtn) {
+      selectLocBtn(fixedBtn);
+      if (customInput) {
+        customInput.value = '';
+        customInput.style.display = 'none';
+      }
+      if (hiddenInput) hiddenInput.value = val;
+    } else {
+      const customBtn = document.querySelector('.loss-location-options .loc-btn[data-value="__custom__"]');
+      selectLocBtn(customBtn);
+      if (customInput) {
+        customInput.value = val;
+        customInput.style.display = 'block';
+      }
+      if (hiddenInput) hiddenInput.value = val;
+    }
+  };
 });
 </script>
 
@@ -2530,10 +2634,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const lossLocationCol = headerMap["유실 위치"];
-    const lossLocationEl = document.getElementById("lossLocation");
-    if (lossLocationEl) {
-      const val = getVal(lossLocationCol);
-      lossLocationEl.value = val ? String(val).trim() : "";
+    const val = getVal(lossLocationCol);
+    if (window._applyLossLocationToUI) {
+      window._applyLossLocationToUI(val ? String(val).trim() : "");
     }
   }
 
@@ -2548,8 +2651,7 @@ document.addEventListener("DOMContentLoaded", () => {
         el.dispatchEvent(new Event("input", { bubbles: true }));
         el.dispatchEvent(new Event("change", { bubbles: true }));
       });
-    const lossLocationEl = document.getElementById("lossLocation");
-    if (lossLocationEl) lossLocationEl.value = "";
+    if (window._resetLossLocationUI) window._resetLossLocationUI();
   }
 
   // 관리번호 입력칸에서 포커스가 빠지거나 엔터를 치면, 이미 불러온 파일 안에서
@@ -2940,10 +3042,7 @@ document.addEventListener("DOMContentLoaded", () => {
             el.dispatchEvent(new Event("input", { bubbles: true }));
             el.dispatchEvent(new Event("change", { bubbles: true }));
           });
-        {
-          const lossLocationEl = document.getElementById("lossLocation");
-          if (lossLocationEl) lossLocationEl.value = "";
-        }
+        if (window._resetLossLocationUI) window._resetLossLocationUI();
         lastAutoLookupManageNo = null;
 
       } catch (err) {
