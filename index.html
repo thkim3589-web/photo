@@ -77,6 +77,7 @@ const CHANGELOG_LATEST = [
   { id: 29, text: "유실 점검 확인일에 날짜를 기록할 때 셀 테두리가 사라지던 문제 수정" },
   { id: 30, text: "버전 표시 옆에 '📖 사용법' 버튼 추가 — 앱 안에서 바로 사용법 안내 확인 가능" },
   { id: 31, text: "사용법 안내에 공정파일(실무용 리스트) 불러오기/적용/다운로드 및 유실점검 입력방법 상세 설명 보강" },
+  { id: 32, text: "'📖 사용법' 팝업을 텍스트 위주에서 흐름도·목업·예시표 중심의 그림 가이드로 전면 개편" },
 ];
 
 function showUpdateNotes(notes){
@@ -969,6 +970,34 @@ try{
 </div>
 <style>
 @keyframes statusSpin { to { transform: rotate(360deg); } }
+
+/* ---- 📖 사용법 팝업(그림 가이드) ---- */
+#guideOverlay .g-flow-step{ display:flex; gap:10px; align-items:flex-start; }
+#guideOverlay .g-icon-col{ display:flex; flex-direction:column; align-items:center; flex:none; }
+#guideOverlay .g-icon{ width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 1px 4px rgba(0,0,0,.1); }
+#guideOverlay .g-arrow{ width:2px;flex:1;min-height:16px;background:repeating-linear-gradient(to bottom,#dde1ea 0 4px,transparent 4px 8px);margin:2px 0; }
+#guideOverlay .g-body{ padding-bottom:16px; }
+#guideOverlay .g-body h4{ margin:2px 0 3px; font-size:13.5px; font-weight:800; }
+#guideOverlay .g-body p{ margin:0; font-size:12px; color:#666; }
+#guideOverlay .g-mock{ background:#fff;border:1px solid #e5e8ef;border-radius:10px;padding:8px 10px;margin-top:8px;font-size:12px; }
+#guideOverlay .g-mock-row{ display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #f0f1f5; }
+#guideOverlay .g-mock-row:last-child{ border-bottom:none; }
+#guideOverlay .g-mock-row b{ font-weight:700; }
+#guideOverlay .g-mock-row span.v{ color:#888; text-align:right; }
+#guideOverlay .g-table{ width:100%;border-collapse:collapse;margin-top:8px;font-size:11.5px;background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e5e8ef; }
+#guideOverlay .g-table th{ background:#e8edfb;color:#003399;padding:6px 8px;text-align:left;font-weight:700; }
+#guideOverlay .g-table td{ padding:6px 8px;border-top:1px solid #eee; }
+#guideOverlay .g-callout{ display:flex;gap:8px;background:#fff7e6;border:1px solid #ffe3a3;border-radius:10px;padding:9px 11px;margin-top:10px;font-size:11.5px;color:#7a5b00; }
+#guideOverlay .g-loss-card{ background:#eef4ff;border:1px solid #a8c7fa;border-radius:12px;padding:12px;margin-top:8px; }
+#guideOverlay .g-chip{ font-size:11px;font-weight:700;padding:5px 10px;border-radius:999px;background:#eef0f3;color:#555;display:inline-block;margin:2px 4px 2px 0; }
+#guideOverlay .g-chip.active{ background:#0b3d91;color:#fff; }
+#guideOverlay .g-stepper{ display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid #d8dee8;border-radius:8px;padding:2px 5px;vertical-align:middle; }
+#guideOverlay .g-stepper .b{ width:17px;height:17px;border-radius:4px;background:#0b3d91;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:11px; }
+#guideOverlay .g-result{ margin-top:8px;background:#fff;border:1px dashed #0b3d91;border-radius:8px;padding:8px 10px;font-size:11.5px; }
+#guideOverlay .g-result b{ color:#0b3d91; }
+#guideOverlay .g-section-title{ font-weight:800;font-size:14px;margin:16px 0 2px;display:flex;align-items:center;gap:7px; }
+#guideOverlay .g-section-title .n{ width:20px;height:20px;border-radius:50%;background:#003399;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex:none; }
+#guideOverlay .g-section-sub{ color:#888;font-size:11.5px;margin:0 0 10px 27px; }
 </style>
 
 <div id="updateNotesOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99998;align-items:center;justify-content:center;">
@@ -980,48 +1009,75 @@ try{
 </div>
 
 <div id="guideOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99998;align-items:center;justify-content:center;">
-  <div style="background:#fff;border-radius:14px;padding:18px 20px;max-width:88vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.3);">
-    <div style="font-weight:bold;font-size:16px;color:#003399;margin-bottom:12px;">📖 사용법 안내</div>
-    <div style="font-size:13px;color:#333;line-height:1.6;">
+  <div style="background:#fff;border-radius:14px;padding:18px 18px;max-width:88vw;max-height:82vh;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.3);">
+    <div style="font-weight:bold;font-size:16px;color:#003399;margin-bottom:4px;">📖 그림으로 보는 사용법</div>
+    <div style="font-size:11.5px;color:#999;margin-bottom:8px;">글자보다 그림으로, 전체 흐름을 한눈에 확인하세요.</div>
 
-      <div style="font-weight:bold;color:#0056b3;margin-top:6px;">1. 관리번호</div>
-      <div>관리번호 입력 후 다른 칸으로 넘어가거나 🔍 버튼을 누르면, 불러온 파일에서 자동으로 값을 찾아 채워줍니다. 없는 번호면 새 항목으로 처리됩니다.</div>
+    <div class="g-section-title"><span class="n">1</span>전체 작업 흐름</div>
+    <div class="g-section-sub">한 건을 처리하는 기본 순서</div>
 
-      <div style="font-weight:bold;color:#8a6d00;margin-top:10px;">2. 자재 수량 관리</div>
-      <div>🟡기존설치 / 🟢신규설치 / 🔵유실점검(=보수) 세 그룹으로 나뉩니다. 자세한 유실점검 입력방법은 아래 4번 참고.</div>
-
-      <div style="font-weight:bold;color:#1e7a3d;margin-top:10px;">3. 사진 촬영 · 갤러리</div>
-      <div>우측 하단 📸 버튼으로 촬영, 갤러리 버튼으로 기존 사진 추가. 자동저장 ON 상태면 새로고침해도 사진이 유지됩니다.</div>
-
-      <div style="font-weight:bold;color:#0b3d91;margin-top:10px;">4. 🔵 유실점검 입력방법 (상세)</div>
-      <div>
-      <b>① 수량 입력</b> — 못/스티커/횡단/표지판 중 실제로 보수한 항목만 +/− 로 수량을 넣습니다. (없는 항목은 0으로 둠)<br>
-      <b>② 위치 선택</b> — 경계석/도로/사리도/인도블럭 중 해당하는 버튼을 누르거나, 목록에 없으면 "직접입력"을 눌러 텍스트로 적습니다. 잘못 눌렀으면 같은 버튼을 한 번 더 눌러 선택 취소 가능.<br>
-      <b>③ 적용</b> — "✅ 적용"을 누르면:<br>
-      &nbsp;&nbsp;- 못+스티커+횡단+표지판 합계가 그대로 <b>"유실 수량"</b>에 기록됨<br>
-      &nbsp;&nbsp;- 선택한 위치가 <b>"유실 위치"</b>에 기록됨<br>
-      &nbsp;&nbsp;- <b>"유실 점검 확인일"</b>은 수량이 0이어도(=점검했지만 이상 없음) 매번 오늘 날짜로 자동 기록됨<br>
-      &nbsp;&nbsp;- <b>"조치결과"</b>에는 수량이 있는 항목만 골라서 자동으로 문장이 만들어짐<br>
-      <b>예시</b>: 위치="경계석", 스티커=3 입력 후 적용 → 유실수량 3, 유실위치 "경계석", 조치결과 "경계석 유실구간 스티커 3개 보수"로 자동 기록<br>
-      <b>여러 항목을 한 번에</b>: 못 2 + 스티커 1을 같이 입력하면 → 유실수량 3, 조치결과 "노면 유실구간 못 2개 보수, 경계석 유실구간 스티커 1개 보수"처럼 항목별로 나열됨<br>
-      ※ 보수/유실점검은 공사 후 3년 무상서비스 개념이라, 신설 공사 여부를 가르는 "공사/현행화" 구분이나 Eng번호 판정에는 영향을 주지 않습니다.
-      </div>
-
-      <div style="font-weight:bold;color:#17a2b8;margin-top:10px;">5. 공정파일(실무용 리스트) 불러오기·적용·다운로드 (상세)</div>
-      <div>
-      "공정파일"이란 회사에서 쓰는 연도별 실무용 리스트 엑셀(예: "26년공정_경북")을 말합니다.<br><br>
-      <b>① 관리번호 입력</b> — 작업할 관리번호를 먼저 입력합니다.<br>
-      <b>② 📥 엑셀불러오기</b> — 공정파일을 선택하면 자동으로 서식(자체양식/실무용)과 연도별 시트를 인식합니다. 24/25/26년처럼 파일마다 열 이름이 조금씩 달라도(예: "신설"↔"신규/정상") 자동으로 맞춰 찾습니다. 한 파일에 여러 연도 시트가 섞여 있어도 관리번호가 실제로 있는 시트를 찾아갑니다.<br>
-      &nbsp;&nbsp;- 있는 관리번호면 → 기존 자재수량이 화면에 자동으로 채워짐<br>
-      &nbsp;&nbsp;- 없는 관리번호면 → "신규" 안내 후 빈 화면에서 새로 입력<br>
-      <b>③ 자재수량/유실점검 입력</b> — 위 2, 4번 참고<br>
-      <b>④ ✅ 적용</b> — 화면 내용을 메모리에 반영 (아직 파일로 저장 안 됨). 같은 방식으로 관리번호를 바꿔가며 여러 건을 계속 적용할 수 있습니다. 이때 공사/현행화 구분, Eng번호, 완료여부, 작업완료일도 자동으로 함께 기록됩니다.<br>
-      <b>⑤ ⬇️ 다운로드</b> — 지금까지 적용한 모든 내용을 반영해서 최종 파일을 한 번에 저장합니다. 원본 파일 전체를 다시 쓰지 않고 꼭 필요한 셀만 바꾸기 때문에, 조건부서식·이름정의·피벗테이블·다른 시트·이미지 등 원본의 나머지 부분은 100% 그대로 보존됩니다.<br>
-      &nbsp;&nbsp;※ 관리번호를 다시 입력하고 🔍(또는 엔터)를 누르면 같은 파일 안에서 즉시 재조회되며, 이미 수량을 입력해둔 상태라면 실수로 지워지지 않도록 자동으로 보호됩니다.
-      </div>
-
+    <div class="g-flow-step">
+      <div class="g-icon-col"><div class="g-icon" style="background:#e8edfb;">📋</div><div class="g-arrow"></div></div>
+      <div class="g-body"><h4>① 관리번호 입력</h4><p>입력 후 다른 칸으로 이동하거나 🔍를 누르면 기존 값을 자동으로 찾아 채워줍니다.</p></div>
     </div>
-    <button onclick="closeGuide()" style="width:100%;padding:10px;border:none;border-radius:8px;background:#003399;color:#fff;font-weight:bold;font-size:14px;margin-top:14px;">닫기</button>
+    <div class="g-flow-step">
+      <div class="g-icon-col"><div class="g-icon" style="background:#fffbea;">🟡</div><div class="g-arrow"></div></div>
+      <div class="g-body"><h4>② 자재 수량 입력</h4><p>기존설치 / 신규설치 / 유실점검(보수) 중 해당 그룹에 수량을 +/− 로 입력합니다.</p></div>
+    </div>
+    <div class="g-flow-step">
+      <div class="g-icon-col"><div class="g-icon" style="background:#eaf3ff;">📸</div><div class="g-arrow"></div></div>
+      <div class="g-body"><h4>③ 현장 사진 촬영</h4><p>카메라 버튼으로 촬영하거나 갤러리에서 추가. 자동저장 ON이면 새로고침해도 유지됩니다.</p></div>
+    </div>
+    <div class="g-flow-step">
+      <div class="g-icon-col"><div class="g-icon" style="background:#e8fafc;">✅</div><div class="g-arrow"></div></div>
+      <div class="g-body"><h4>④ 적용</h4><p>입력 내용을 메모리에 반영. 관리번호를 바꿔가며 ①~④를 반복해 여러 건을 쌓을 수 있습니다.</p></div>
+    </div>
+    <div class="g-flow-step">
+      <div class="g-icon-col"><div class="g-icon" style="background:#e8fafc;">⬇️</div></div>
+      <div class="g-body"><h4>⑤ 다운로드 / 엑셀저장</h4><p>모든 건을 적용한 뒤 마지막에 한 번, 최종 파일을 저장합니다.</p></div>
+    </div>
+
+    <div class="g-section-title"><span class="n">2</span>공정파일 불러오기</div>
+    <div class="g-section-sub">연도별 실무용 리스트 엑셀 다루기</div>
+    <div class="g-mock">
+      <div class="g-mock-row"><b>📥 엑셀불러오기</b><span class="v">파일 선택</span></div>
+      <div class="g-mock-row"><b>서식 자동 인식</b><span class="v">자체양식 / 실무용</span></div>
+      <div class="g-mock-row"><b>연도별 열 이름 차이</b><span class="v">자동 보정</span></div>
+      <div class="g-mock-row"><b>여러 연도 시트 혼재</b><span class="v">올바른 시트 자동 탐색</span></div>
+    </div>
+    <table class="g-table">
+      <tr><th>관리번호 상태</th><th>불러오기 결과</th></tr>
+      <tr><td>이미 목록에 있음</td><td>기존 자재수량 자동으로 채워짐</td></tr>
+      <tr><td>목록에 없음(신규)</td><td>"신규" 안내 후 빈 화면에서 입력</td></tr>
+    </table>
+    <div class="g-callout">🛡️&nbsp;<span><b>원본 100% 보존.</b> 다운로드 시 필요한 셀만 바꿔치기하고, 조건부서식·이름정의·피벗테이블·다른 시트·이미지는 원본 그대로 유지됩니다.</span></div>
+
+    <div class="g-section-title"><span class="n">3</span>유실점검 입력방법</div>
+    <div class="g-section-sub">보수 작업을 기록하는 순서</div>
+    <div class="g-loss-card">
+      <div style="font-weight:800;color:#0b3d91;margin-bottom:8px;">🔵 유실점검</div>
+      <div style="font-size:11px;font-weight:700;color:#888;margin-bottom:5px;">① 수량 입력</div>
+      <div style="margin-bottom:10px;">스티커&nbsp; <span class="g-stepper"><span class="b">−</span>&nbsp;3&nbsp;<span class="b">+</span></span></div>
+      <div style="font-size:11px;font-weight:700;color:#888;margin-bottom:5px;">② 위치 선택 (한 번 더 누르면 취소)</div>
+      <div style="margin-bottom:6px;">
+        <span class="g-chip active">경계석</span><span class="g-chip">도로</span><span class="g-chip">사리도</span><span class="g-chip">인도블럭</span><span class="g-chip">직접입력</span>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:#888;margin-top:8px;margin-bottom:2px;">③ 적용 → 자동 기록 결과</div>
+      <div class="g-result">
+        유실 수량: <b>3</b> · 유실 위치: <b>경계석</b><br>
+        유실 점검 확인일: <b>오늘 날짜 자동 기록</b><br>
+        조치결과: <b>"경계석 유실구간 스티커 3개 보수"</b> 자동 생성
+      </div>
+    </div>
+    <table class="g-table">
+      <tr><th>입력 예시</th><th>조치결과 자동 생성</th></tr>
+      <tr><td>스티커 3개</td><td>경계석 유실구간 스티커 3개 보수</td></tr>
+      <tr><td>못 2개+스티커 1개</td><td>노면 유실구간 못 2개 보수, 경계석 유실구간 스티커 1개 보수</td></tr>
+      <tr><td>수량 0(점검만 함)</td><td>확인일만 기록, 조치결과는 비워둠</td></tr>
+    </table>
+    <div class="g-callout">💡&nbsp;<span>유실점검(보수)은 <b>공사 후 3년 무상서비스</b> 개념이라 "공사/현행화" 구분이나 Eng번호 판정에는 영향을 주지 않습니다.</span></div>
+
+    <button onclick="closeGuide()" style="width:100%;padding:10px;border:none;border-radius:8px;background:#003399;color:#fff;font-weight:bold;font-size:14px;margin-top:16px;">닫기</button>
   </div>
 </div>
 
