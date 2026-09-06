@@ -2592,6 +2592,16 @@ document.addEventListener("DOMContentLoaded", () => {
         customFormats[m[1]] = m[2];
       }
     }
+
+    // 서식 코드에서 리터럴 문자열("...")과 [Red] 같은 색상/조건 대괄호를 제거한 뒤,
+    // 남은 부분에 y/m/d/h/s(날짜·시간 기호)가 있는지 본다.
+    // ([Red]처럼 색상 이름 안에 우연히 'd'가 들어있어 날짜로 오인하는 것을 방지)
+    function looksLikeDateFormat(code) {
+      let c = code.replace(/&quot;[^&]*&quot;/g, "");
+      c = c.replace(/\[[^\]]*\]/g, (bracket) => (/^\[[hms]{1,2}\]$/i.test(bracket) ? bracket : ""));
+      return /[ymdhs]/i.test(c);
+    }
+
     const cellXfsBlock = stylesXml.match(/<cellXfs count="(\d+)">([\s\S]*?)<\/cellXfs>/);
     if (!cellXfsBlock) return null;
     const xfRe = /<xf[^/]*?\/?>/g;
@@ -2602,7 +2612,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const id = idMatch[1];
         if (BUILTIN_DATE_IDS.has(Number(id))) return idx;
         const code = customFormats[id];
-        if (code && /[ymdhs]/i.test(code.replace(/&quot;[^&]*&quot;/g, ""))) return idx;
+        if (code && looksLikeDateFormat(code)) return idx;
       }
       idx++;
     }
