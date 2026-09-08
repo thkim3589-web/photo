@@ -3410,13 +3410,22 @@ document.addEventListener("DOMContentLoaded", () => {
         // → 열이 실제로 있는 파일(서식 B)에만 적용됨
         {
           const workDate = new Date();
-          const monthLabel = `${workDate.getMonth() + 1}월`;
           const hasNew = newNail > 0 || newSticker > 0 || signBoard > 0 || crossing > 0;
           const constructionType = hasNew ? "공사" : "현행화";
-          const engNo = getEngNo(workbook, monthLabel, hasNew) || "";
 
           writeText(headerMap["공사/현행화"], constructionType);
-          writeText(headerMap["Eng 번호"], engNo);
+
+          // Eng 번호는 최초 등록(칸이 비어있을 때) 시점에만 기록한다.
+          // 그 최초 등록이 공사든 현행화든 그때의 구분에 맞는 ENG번호(D열/E열)가 들어가고,
+          // 이후에는 공사로 재방문하든 현행화(유지보수)로 재방문하든 절대 덮어쓰지 않는다.
+          const engCol = headerMap["Eng 번호"];
+          const existingEngNo = engCol ? String(row.getCell(engCol).value ?? "").trim() : "";
+          if (engCol && !existingEngNo) {
+            const monthLabel = `${workDate.getMonth() + 1}월`;
+            const engNo = getEngNo(workbook, monthLabel, hasNew) || "";
+            writeText(engCol, engNo);
+          }
+
           writeText(headerMap["완료여부"], "완료");
           writeDate(headerMap["작업 완료일"], workDate);
         }
