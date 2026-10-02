@@ -78,6 +78,7 @@ const CHANGELOG_LATEST = [
   { id: 30, text: "버전 표시 옆에 '📖 사용법' 버튼 추가 — 앱 안에서 바로 사용법 안내 확인 가능" },
   { id: 31, text: "사용법 안내에 공정파일(실무용 리스트) 불러오기/적용/다운로드 및 유실점검 입력방법 상세 설명 보강" },
   { id: 32, text: "'📖 사용법' 팝업을 텍스트 위주에서 흐름도·목업·예시표 중심의 그림 가이드로 전면 개편" },
+  { id: 33, text: "자재 수량 관리에 '⚠️ 심도부족' 그룹 추가(못/스티커/횡단) — 공정파일의 심도부족 관련 열도 자동 불러오기/적용/저장 지원" },
 ];
 
 function showUpdateNotes(notes){
@@ -507,6 +508,11 @@ input[placeholder="사진 메모"]{display:none !important;}
     border:1px solid #a8c7fa;
     background:#eef4ff;
 }
+.material-group.depth-group{
+    border:1px solid #ffc987;
+    background:#fff6ea;
+    margin-bottom:5px;
+}
 .material-group-header{
     display:flex;
     justify-content:space-between;
@@ -520,6 +526,7 @@ input[placeholder="사진 메모"]{display:none !important;}
 .material-group.old-group .material-group-title{ color:#8a6d00; }
 .material-group.new-group .material-group-title{ color:#1e7a3d; }
 .material-group.repair-group .material-group-title{ color:#0b3d91; }
+.material-group.depth-group .material-group-title{ color:#a15c00; }
 .group-total-badge{
     display:flex;
     align-items:center;
@@ -533,6 +540,7 @@ input[placeholder="사진 메모"]{display:none !important;}
 .old-group .group-total-badge{ border:1px solid #e0c56b; color:#8a6d00; }
 .new-group .group-total-badge{ border:1px solid #8fcf9f; color:#1e7a3d; }
 .repair-group .group-total-badge{ border:1px solid #a8c7fa; color:#0b3d91; }
+.depth-group .group-total-badge{ border:1px solid #ffc987; color:#a15c00; }
 .group-total-badge input{
     width:24px;
     height:15px;
@@ -1022,7 +1030,7 @@ try{
     </div>
     <div class="g-flow-step">
       <div class="g-icon-col"><div class="g-icon" style="background:#fffbea;">🟡</div><div class="g-arrow"></div></div>
-      <div class="g-body"><h4>② 자재 수량 입력</h4><p>기존설치 / 신규설치 / 유실점검(보수) 중 해당 그룹에 수량을 +/− 로 입력합니다.</p></div>
+      <div class="g-body"><h4>② 자재 수량 입력</h4><p>기존설치 / 신규설치 / 심도부족 / 유실점검(보수) 중 해당 그룹에 수량을 +/− 로 입력합니다.</p></div>
     </div>
     <div class="g-flow-step">
       <div class="g-icon-col"><div class="g-icon" style="background:#eaf3ff;">📸</div><div class="g-arrow"></div></div>
@@ -1196,6 +1204,41 @@ style="width:60px;min-height:auto;height:20px;border:none;background:transparent
                         <button type="button" class="qty-btn qty-minus" data-target="lacquer">−</button>
                         <input type="number" id="lacquer" value="0" readonly class="qty-input">
                         <button type="button" class="qty-btn qty-plus" data-target="lacquer">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="material-group depth-group">
+            <div class="material-group-header">
+                <div class="material-group-title">⚠️ 심도부족 <span class="group-toggle-icon">▾</span></div>
+                <div class="group-total-badge">합계
+                    <input type="number" id="depthBox" value="0" readonly>
+                </div>
+            </div>
+            <div class="material-items-grid">
+                <div class="material-item">
+                    <div class="material-item-label">🔧 못</div>
+                    <div class="qty-stepper">
+                        <button type="button" class="qty-btn qty-minus" data-target="depthNail">−</button>
+                        <input type="number" id="depthNail" value="0" readonly class="qty-input">
+                        <button type="button" class="qty-btn qty-plus" data-target="depthNail">+</button>
+                    </div>
+                </div>
+                <div class="material-item">
+                    <div class="material-item-label">⚪ 스티커</div>
+                    <div class="qty-stepper">
+                        <button type="button" class="qty-btn qty-minus" data-target="depthSticker">−</button>
+                        <input type="number" id="depthSticker" value="0" readonly class="qty-input">
+                        <button type="button" class="qty-btn qty-plus" data-target="depthSticker">+</button>
+                    </div>
+                </div>
+                <div class="material-item">
+                    <div class="material-item-label">횡단</div>
+                    <div class="qty-stepper">
+                        <button type="button" class="qty-btn qty-minus" data-target="depthCrossing">−</button>
+                        <input type="number" id="depthCrossing" value="0" readonly class="qty-input">
+                        <button type="button" class="qty-btn qty-plus" data-target="depthCrossing">+</button>
                     </div>
                 </div>
             </div>
@@ -1588,16 +1631,22 @@ window.addEventListener('load', function () {
     const repairCrossing = Number(document.getElementById('repairCrossing')?.value || 0);
     const repairSignBoard = Number(document.getElementById('repairSignBoard')?.value || 0);
 
+    const depthNail = Number(document.getElementById('depthNail')?.value || 0);
+    const depthSticker = Number(document.getElementById('depthSticker')?.value || 0);
+    const depthCrossing = Number(document.getElementById('depthCrossing')?.value || 0);
+
     const oldBox = document.getElementById('oldBox');
     const newBox = document.getElementById('newBox');
     const repairBox = document.getElementById('repairBox');
+    const depthBox = document.getElementById('depthBox');
 
     if(oldBox) oldBox.value = oldNail + oldSticker + oldSignBoard;
     if(newBox) newBox.value = newNail + newSticker + crossing + signBoard;
     if(repairBox) repairBox.value = repairNail + repairSticker + repairCrossing + repairSignBoard;
+    if(depthBox) depthBox.value = depthNail + depthSticker + depthCrossing;
   }
 
-  ['oldNail','oldSticker','oldSignBoard','crossing','signBoard','newNail','newSticker','repairNail','repairSticker','repairCrossing','repairSignBoard'].forEach(id=>{
+  ['oldNail','oldSticker','oldSignBoard','crossing','signBoard','newNail','newSticker','repairNail','repairSticker','repairCrossing','repairSignBoard','depthNail','depthSticker','depthCrossing'].forEach(id=>{
     const el = document.getElementById(id);
     if(el){
       el.addEventListener('input', calc);
@@ -2313,12 +2362,17 @@ async function buildMaterialSheetV70(workbook, manageNo, managerName){
  {header:"보수스티커",key:"repairSticker",width:12},
  {header:"보수횡단",key:"repairCrossing",width:10},
  {header:"보수표지판",key:"repairSignBoard",width:12},
+ {header:"심도부족합",key:"depthBox",width:10},
+ {header:"심도부족못",key:"depthNail",width:10},
+ {header:"심도부족스티커",key:"depthSticker",width:12},
+ {header:"심도부족횡단",key:"depthCrossing",width:10},
  {header:"총합계",key:"total",width:10},
  {header:"작성일시",key:"dt",width:20}
  ];
  const oldBox0=+document.getElementById("oldBox").value||0;
  const newBox0=+document.getElementById("newBox").value||0;
  const repairBox0=+document.getElementById("repairBox").value||0;
+ const depthBox0=+document.getElementById("depthBox").value||0;
  const oldNail0=+document.getElementById("oldNail").value||0;
  const oldSticker0=+document.getElementById("oldSticker").value||0;
  const oldSignBoard0=+document.getElementById("oldSignBoard").value||0;
@@ -2331,20 +2385,25 @@ async function buildMaterialSheetV70(workbook, manageNo, managerName){
  const repairSticker0=+document.getElementById("repairSticker").value||0;
  const repairCrossing0=+document.getElementById("repairCrossing").value||0;
  const repairSignBoard0=+document.getElementById("repairSignBoard").value||0;
+ const depthNail0=+document.getElementById("depthNail").value||0;
+ const depthSticker0=+document.getElementById("depthSticker").value||0;
+ const depthCrossing0=+document.getElementById("depthCrossing").value||0;
 
  // "✅ 적용" 이후 화면 수량이 0으로 초기화된 상태라면, 적용 시점에 기억해둔
  // 마지막 값(관리번호 기준)을 대신 사용해서 엑셀저장 시 0으로 찍히지 않게 한다.
  const rawFields = { oldNail: oldNail0, oldSticker: oldSticker0, oldSignBoard: oldSignBoard0,
    newNail: newNail0, newSticker: newSticker0, crossing: crossing0, signBoard: signBoard0, lacquer: lacquer0,
    repairNail: repairNail0, repairSticker: repairSticker0, repairCrossing: repairCrossing0,
-   repairSignBoard: repairSignBoard0 };
+   repairSignBoard: repairSignBoard0,
+   depthNail: depthNail0, depthSticker: depthSticker0, depthCrossing: depthCrossing0 };
  const allZero = Object.values(rawFields).every(v => v === 0);
  const snapshot = (window._appliedMaterialValues && window._appliedMaterialValues.get(manageNo)) || null;
- const src = (allZero && snapshot) ? snapshot : { ...rawFields, oldBox: oldBox0, newBox: newBox0, repairBox: repairBox0 };
+ const src = (allZero && snapshot) ? snapshot : { ...rawFields, oldBox: oldBox0, newBox: newBox0, repairBox: repairBox0, depthBox: depthBox0 };
 
  const oldBox=src.oldBox;
  const newBox=src.newBox;
  const repairBox=src.repairBox;
+ const depthBox=src.depthBox;
  const oldNail=src.oldNail;
  const oldSticker=src.oldSticker;
  const oldSignBoard=src.oldSignBoard;
@@ -2357,12 +2416,16 @@ async function buildMaterialSheetV70(workbook, manageNo, managerName){
  const repairSticker=src.repairSticker;
  const repairCrossing=src.repairCrossing;
  const repairSignBoard=src.repairSignBoard;
+ const depthNail=src.depthNail;
+ const depthSticker=src.depthSticker;
+ const depthCrossing=src.depthCrossing;
 
  ws.addRow({
  m:manageNo,mgr:managerName,oldBox,oldNail,oldSticker,oldSignBoard,
  newBox,newNail,newSticker,crossing,signBoard,lacquer,
  repairBox,repairNail,repairSticker,repairCrossing,repairSignBoard,
- total:oldBox+newBox+lacquer+repairBox,
+ depthBox,depthNail,depthSticker,depthCrossing,
+ total:oldBox+newBox+lacquer+repairBox+depthBox,
  dt:new Date().toLocaleString()
  });
 
@@ -2519,6 +2582,9 @@ document.addEventListener("DOMContentLoaded", () => {
         repairSticker: "보수스티커",
         repairCrossing: "보수횡단",
         repairSignBoard: "보수표지판",
+        depthNail: "심도부족못",
+        depthSticker: "심도부족스티커",
+        depthCrossing: "심도부족횡단",
       },
     },
     B: {
@@ -2533,6 +2599,10 @@ document.addEventListener("DOMContentLoaded", () => {
         signBoard: "신규 지하매설 표지판",
         crossing: "도로 횡단 사각 스티커",
         // lacquer 매칭 열 없음 → 항상 0 처리
+        depthNail: "신규/심도부족",
+        depthSticker: "신규/심도부족(경계석)",
+        depthCrossing: "도로횡단 사각 스티커(심도부족)",
+        // ※ 24년 파일에는 '못 심도부족'에 대응하는 열이 없음 → 그 파일만 자동 0 처리
       },
     },
   };
@@ -2545,6 +2615,13 @@ document.addEventListener("DOMContentLoaded", () => {
     newNail: ["신설"],
     newSticker: ["신설정상(경계석)"],
     crossing: ["도로 횡단 스티커"],
+    // 심도부족 열도 연도별로 표기가 다름:
+    //  26년: 신규/심도부족 · 신규/심도부족(경계석) · 도로횡단 사각 스티커(심도부족)
+    //  25년: 신규/ 심도부족(줄바꿈으로 슬래시 뒤 공백 생김) · 신규/심도부족(경계석) · 도로횡단 사각 스티커(심도부족)
+    //  24년: (못 심도부족 열 없음) · 신설 심도부족(경계석) · 심도미달 횡단스티커
+    depthNail: ["신규/ 심도부족"],
+    depthSticker: ["신설 심도부족(경계석)"],
+    depthCrossing: ["심도미달 횡단스티커"],
   };
 
   function resolveFieldColumn(headerMap, profile, id, canonicalHeader) {
@@ -2998,6 +3075,10 @@ document.addEventListener("DOMContentLoaded", () => {
       { header: "보수스티커", key: "repairSticker", width: 12 },
       { header: "보수횡단", key: "repairCrossing", width: 10 },
       { header: "보수표지판", key: "repairSignBoard", width: 12 },
+      { header: "심도부족합", key: "depthBox", width: 10 },
+      { header: "심도부족못", key: "depthNail", width: 10 },
+      { header: "심도부족스티커", key: "depthSticker", width: 12 },
+      { header: "심도부족횡단", key: "depthCrossing", width: 10 },
       { header: "총합계", key: "total", width: 10 },
       { header: "작성일시", key: "dt", width: 20 },
     ];
@@ -3067,7 +3148,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // 관리번호에 해당하는 값이 없을 때(신규 관리번호) 화면 입력칸을 비운다
   function clearMaterialFields() {
     ["oldNail", "oldSticker", "oldSignBoard", "newNail", "newSticker", "crossing", "signBoard", "lacquer",
-     "repairNail", "repairSticker", "repairCrossing", "repairSignBoard"]
+     "repairNail", "repairSticker", "repairCrossing", "repairSignBoard",
+     "depthNail", "depthSticker", "depthCrossing"]
       .forEach((id) => {
         const el = document.getElementById(id);
         if (!el) return;
@@ -3083,7 +3165,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // 자재 항목에 이미 값이 입력되어 있는지 확인 (자동조회가 함부로 덮어쓰지 않기 위함)
   function hasEnteredMaterialData() {
     const ids = ["oldNail", "oldSticker", "oldSignBoard", "newNail", "newSticker", "crossing", "signBoard", "lacquer",
-                 "repairNail", "repairSticker", "repairCrossing", "repairSignBoard"];
+                 "repairNail", "repairSticker", "repairCrossing", "repairSignBoard",
+                 "depthNail", "depthSticker", "depthCrossing"];
     const hasQty = ids.some((id) => Number(document.getElementById(id)?.value || 0) > 0);
     const hasLocation = (document.getElementById("lossLocation")?.value || "").trim() !== "";
     return hasQty || hasLocation;
@@ -3301,18 +3384,22 @@ document.addEventListener("DOMContentLoaded", () => {
       const repairSticker = getFieldVal("repairSticker");
       const repairCrossing = getFieldVal("repairCrossing");
       const repairSignBoard = getFieldVal("repairSignBoard");
+      const depthNail = getFieldVal("depthNail");
+      const depthSticker = getFieldVal("depthSticker");
+      const depthCrossing = getFieldVal("depthCrossing");
       const oldBox = oldNail + oldSticker + oldSignBoard;
       const newBox = newNail + newSticker + crossing + signBoard;
       const repairBox = repairNail + repairSticker + repairCrossing + repairSignBoard;
-      const total = oldBox + newBox + lacquer + repairBox;
+      const depthBox = depthNail + depthSticker + depthCrossing;
+      const total = oldBox + newBox + lacquer + repairBox + depthBox;
       const dt = new Date().toLocaleString();
 
-      const fieldValues = { oldNail, oldSticker, oldSignBoard, newNail, newSticker, crossing, signBoard, lacquer, repairNail, repairSticker, repairCrossing, repairSignBoard };
+      const fieldValues = { oldNail, oldSticker, oldSignBoard, newNail, newSticker, crossing, signBoard, lacquer, repairNail, repairSticker, repairCrossing, repairSignBoard, depthNail, depthSticker, depthCrossing };
 
       // 엑셀저장(사진 엑셀)이 초기화 이후에도 방금 적용한 값을 정확히 쓸 수 있도록
       // 관리번호별로 마지막 적용값을 전역에 기억해둔다
       window._appliedMaterialValues = window._appliedMaterialValues || new Map();
-      window._appliedMaterialValues.set(manageNo, { ...fieldValues, oldBox, newBox, repairBox, total });
+      window._appliedMaterialValues.set(manageNo, { ...fieldValues, oldBox, newBox, repairBox, depthBox, total });
 
       try {
         // 작업 중인 워크북이 없으면 새로 생성 (서식 A)
@@ -3399,6 +3486,7 @@ document.addEventListener("DOMContentLoaded", () => {
             "기설합": oldBox,
             "신설합": newBox,
             "보수합": repairBox,
+            "심도부족합": depthBox,
             "총합계": total,
           };
           Object.entries(extraNumeric).forEach(([header, val]) => {
@@ -3410,22 +3498,14 @@ document.addEventListener("DOMContentLoaded", () => {
         // → 열이 실제로 있는 파일(서식 B)에만 적용됨
         {
           const workDate = new Date();
-          const hasNew = newNail > 0 || newSticker > 0 || signBoard > 0 || crossing > 0;
+          const monthLabel = `${workDate.getMonth() + 1}월`;
+          const hasNew = newNail > 0 || newSticker > 0 || signBoard > 0 || crossing > 0 ||
+                         depthNail > 0 || depthSticker > 0 || depthCrossing > 0;
           const constructionType = hasNew ? "공사" : "현행화";
+          const engNo = getEngNo(workbook, monthLabel, hasNew) || "";
 
           writeText(headerMap["공사/현행화"], constructionType);
-
-          // Eng 번호는 최초 등록(칸이 비어있을 때) 시점에만 기록한다.
-          // 그 최초 등록이 공사든 현행화든 그때의 구분에 맞는 ENG번호(D열/E열)가 들어가고,
-          // 이후에는 공사로 재방문하든 현행화(유지보수)로 재방문하든 절대 덮어쓰지 않는다.
-          const engCol = headerMap["Eng 번호"];
-          const existingEngNo = engCol ? String(row.getCell(engCol).value ?? "").trim() : "";
-          if (engCol && !existingEngNo) {
-            const monthLabel = `${workDate.getMonth() + 1}월`;
-            const engNo = getEngNo(workbook, monthLabel, hasNew) || "";
-            writeText(engCol, engNo);
-          }
-
+          writeText(headerMap["Eng 번호"], engNo);
           writeText(headerMap["완료여부"], "완료");
           writeDate(headerMap["작업 완료일"], workDate);
         }
@@ -3489,7 +3569,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // 다음 작업을 위해 자재 수량 입력칸을 0으로 초기화 (관리번호/담당자는 유지)
         ["oldNail", "oldSticker", "oldSignBoard", "newNail", "newSticker", "crossing", "signBoard", "lacquer",
-         "repairNail", "repairSticker", "repairCrossing", "repairSignBoard"]
+         "repairNail", "repairSticker", "repairCrossing", "repairSignBoard",
+         "depthNail", "depthSticker", "depthCrossing"]
           .forEach((id) => {
             const el = document.getElementById(id);
             if (!el) return;
