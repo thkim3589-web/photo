@@ -80,6 +80,7 @@ const CHANGELOG_LATEST = [
   { id: 32, text: "'📖 사용법' 팝업을 텍스트 위주에서 흐름도·목업·예시표 중심의 그림 가이드로 전면 개편" },
   { id: 33, text: "자재 수량 관리에 '⚠️ 심도부족' 그룹 추가(못/스티커/횡단) — 공정파일의 심도부족 관련 열도 자동 불러오기/적용/저장 지원" },
   { id: 34, text: "유실점검(보수)만 적용할 때는 공사/현행화·Eng번호·완료여부·작업 완료일을 건드리지 않도록 수정 — 기존 작업 완료일이 유실점검 때문에 바뀌던 문제 해결" },
+  { id: 35, text: "리스트 엑셀 '⬇️ 다운로드' 시 파일명 끝에 날짜·시간(예: _20261004_1433)을 붙여 저장 — 매번 다른 파일로 구분 저장" },
 ];
 
 function showUpdateNotes(notes){
@@ -3646,12 +3647,28 @@ document.addEventListener("DOMContentLoaded", () => {
           });
         }
 
-        saveAs(blob, workingState.fileName);
+        saveAs(blob, withDateTimeSuffix(workingState.fileName));
       } catch (err) {
         alert("다운로드 오류: " + err.message);
         console.error(err);
       }
     });
+  }
+
+  // 파일명 끝에 "_YYYYMMDD_HHmm"를 붙여서(확장자 앞) 다운로드할 때마다
+  // 서로 다른 이름이 되게 한다 (덮어쓰기 대신 매번 새 파일로 구분 저장).
+  function withDateTimeSuffix(name) {
+    const base = String(name || "자재수량관리.xlsx");
+    const dotIdx = base.lastIndexOf(".");
+    const stem = dotIdx > -1 ? base.slice(0, dotIdx) : base;
+    const ext = dotIdx > -1 ? base.slice(dotIdx) : "";
+    const now = new Date();
+    const y = now.getFullYear();
+    const mo = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    const h = String(now.getHours()).padStart(2, "0");
+    const mi = String(now.getMinutes()).padStart(2, "0");
+    return `${stem}_${y}${mo}${d}_${h}${mi}${ext}`;
   }
 });
 </script>
