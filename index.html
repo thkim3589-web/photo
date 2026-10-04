@@ -81,6 +81,7 @@ const CHANGELOG_LATEST = [
   { id: 33, text: "자재 수량 관리에 '⚠️ 심도부족' 그룹 추가(못/스티커/횡단) — 공정파일의 심도부족 관련 열도 자동 불러오기/적용/저장 지원" },
   { id: 34, text: "유실점검(보수)만 적용할 때는 공사/현행화·Eng번호·완료여부·작업 완료일을 건드리지 않도록 수정 — 기존 작업 완료일이 유실점검 때문에 바뀌던 문제 해결" },
   { id: 35, text: "리스트 엑셀 '⬇️ 다운로드' 시 파일명 끝에 날짜·시간(예: _20261004_1433)을 붙여 저장 — 매번 다른 파일로 구분 저장" },
+  { id: 36, text: "유실점검 '조치결과' 자동 기록 문구를 '(위치) OO N개 유실되어 OO 재설치' 형식으로 변경 (예: 차도 원형 부착 표시기 1개 유실되어 표시못 재설치)" },
 ];
 
 function showUpdateNotes(notes){
@@ -1076,13 +1077,15 @@ try{
       <div class="g-result">
         유실 수량: <b>3</b> · 유실 위치: <b>경계석</b><br>
         유실 점검 확인일: <b>오늘 날짜 자동 기록</b><br>
-        조치결과: <b>"경계석 유실구간 스티커 3개 보수"</b> 자동 생성
+        조치결과: <b>"경계석 원형 경계석 표시 스티커 3개 유실되어 표시 스티커 재설치"</b> 자동 생성
       </div>
     </div>
     <table class="g-table">
       <tr><th>입력 예시</th><th>조치결과 자동 생성</th></tr>
-      <tr><td>스티커 3개</td><td>경계석 유실구간 스티커 3개 보수</td></tr>
-      <tr><td>못 2개+스티커 1개</td><td>노면 유실구간 못 2개 보수, 경계석 유실구간 스티커 1개 보수</td></tr>
+      <tr><td>위치: 차도, 못 1개</td><td>차도 원형 부착 표시기 1개 유실되어 표시못 재설치</td></tr>
+      <tr><td>위치: 경계석, 스티커 3개</td><td>경계석 원형 경계석 표시 스티커 3개 유실되어 표시 스티커 재설치</td></tr>
+      <tr><td>위치: 도로, 횡단 2개</td><td>도로 도로횡단 사각 스티커 2개 유실되어 사각 스티커 재설치</td></tr>
+      <tr><td>위치 미입력, 표지판 1개</td><td>지하매설 표지판 1개 유실되어 표지판 재설치 (위치 생략)</td></tr>
       <tr><td>수량 0(점검만 함)</td><td>확인일만 기록, 조치결과는 비워둠</td></tr>
     </table>
     <div class="g-callout">💡&nbsp;<span>유실점검(보수)은 <b>공사 후 3년 무상서비스</b> 개념이라 "공사/현행화" 구분이나 Eng번호 판정에는 영향을 주지 않습니다.</span></div>
@@ -3523,13 +3526,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // 유실점검(=보수) — 적용할 때마다 확인일은 항상 기록.
         // 보수 합계 수량을 그대로 "유실 수량"으로 쓰고, 보수 항목 중 수량이 있는 것만
-        // 조치결과에 "OO 유실구간 OO N개 보수" 형식으로 자동 정리해서 기록한다.
+        // 조치결과에 "(위치) OO N개 유실되어 OO 재설치" 형식으로 자동 정리해서 기록한다.
+        // 예) "차도 원형 부착 표시기 1개 유실되어 표시못 재설치"
         {
-          const REPAIR_ITEM_LABELS = {
-            repairNail: { context: "노면", material: "못" },
-            repairSticker: { context: "경계석", material: "스티커" },
-            repairCrossing: { context: "도로횡단", material: "스티커" },
-            repairSignBoard: { context: "사리도", material: "표지판" },
+          const REPAIR_ITEM_TEMPLATES = {
+            repairNail: (loc, qty) => `${loc ? loc + " " : ""}원형 부착 표시기 ${qty}개 유실되어 표시못 재설치`,
+            repairSticker: (loc, qty) => `${loc ? loc + " " : ""}원형 경계석 표시 스티커 ${qty}개 유실되어 표시 스티커 재설치`,
+            repairCrossing: (loc, qty) => `${loc ? loc + " " : ""}도로횡단 사각 스티커 ${qty}개 유실되어 사각 스티커 재설치`,
+            repairSignBoard: (loc, qty) => `${loc ? loc + " " : ""}지하매설 표지판 ${qty}개 유실되어 표지판 재설치`,
           };
           const repairQtyById = { repairNail, repairSticker, repairCrossing, repairSignBoard };
           const lossLocationEl = document.getElementById("lossLocation");
@@ -3544,10 +3548,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (lossQty > 0) {
             const parts = Object.entries(repairQtyById)
               .filter(([, qty]) => qty > 0)
-              .map(([id, qty]) => {
-                const { context, material } = REPAIR_ITEM_LABELS[id];
-                return `${context} 유실구간 ${material} ${qty}개 보수`;
-              });
+              .map(([id, qty]) => REPAIR_ITEM_TEMPLATES[id](lossLocation, qty));
             if (parts.length > 0) {
               writeText(headerMap["조치결과"], parts.join(", "));
             }
