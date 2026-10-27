@@ -143,6 +143,7 @@ const CHANGELOG_LATEST = [
   { id: 37, text: "[APK 전용] 엑셀저장/다운로드/ZIP 압축이 앱(APK)에서 동작하지 않던 문제 수정 — 안드로이드 앱 안에서는 파일을 기기에 저장 후 공유시트로 바로 저장/전달 가능" },
   { id: 38, text: "[APK 전용] 파일 저장 방식을 공유시트 → 안드로이드 '저장' 창으로 변경 — 저장 위치(내 파일/다운로드 등)를 직접 선택해 바로 저장 가능" },
   { id: 39, text: "[APK 전용] 사진이 많을 때 '최근 앱' 목록에서 앱이 '열지 못했어요' 오류로 복귀 안 되던 문제 수정" },
+  { id: 40, text: "[APK 전용] 📤 공유하기 버튼이 앱(APK)에서 동작하지 않던 문제 수정 — 안드로이드 공유창으로 연결" },
 ];
 
 function showUpdateNotes(notes){
@@ -3856,7 +3857,16 @@ ${manageNo}_지중 표시기 보강 작업_현장 작업사진.xlsx`;
 
     try{
 
-      if(navigator.share){
+      const nativeShare = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()
+        && window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
+      if(nativeShare){
+        // 안드로이드 앱(APK): WebView에는 navigator.share가 없으므로 네이티브 공유 플러그인 사용
+        await nativeShare.share({
+          title:"현장사진관리",
+          text:shareText,
+          dialogTitle:"공유하기"
+        });
+      }else if(navigator.share){
         await navigator.share({
           title:"현장사진관리",
           text:shareText
