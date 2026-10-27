@@ -49,8 +49,6 @@
           mimeType: guessMimeType(safeName),
           data: base64,
         });
-        // 📤 공유하기에서 방금 저장한 파일을 카톡/네이버 등으로 보낼 수 있도록 기억
-        window._lastSavedFile = { blob: blob, name: safeName };
       } catch (err) {
         console.error("네이티브 저장 실패:", err);
         const msg = String((err && err.message) || err || "");
@@ -3861,23 +3859,24 @@ ${manageNo}_지중 표시기 보강 작업_현장 작업사진.xlsx`;
     try{
 
       const nativeShare = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()
-        && window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
+        && window.Capacitor.Plugins && window.Capacitor.Plugins.SaveFile;
       if(nativeShare){
         // 안드로이드 앱(APK): WebView에는 navigator.share가 없으므로 네이티브 공유 플러그인 사용
-        const last = window._lastSavedFile;
-        const FS = window.Capacitor.Plugins.Filesystem;
-        if(last && FS && window.__blobToBase64){
-          // 방금 저장한 엑셀(또는 ZIP) 파일을 첨부해서 공유
-          const b64 = await window.__blobToBase64(last.blob);
-          const w = await FS.writeFile({ path:last.name, data:b64, directory:"CACHE" });
-          await nativeShare.share({
-            title:last.name,
+        const SF = window.Capacitor.Plugins.SaveFile;
+        try{
+          // 방금 저장한 파일(앱 내부 복사본)을 공유창으로 전달 (카톡/네이버 등)
+          await SF.shareLastFile({
+            title:"현장사진관리",
             text:shareText,
-            url:w.uri,
             dialogTitle:"공유하기"
           });
-        }else{
-          alert("공유할 파일이 없습니다.\n먼저 📗 엑셀저장을 한 뒤 공유하기를 눌러주세요.");
+        }catch(e){
+          const m=String((e&&e.message)||e||"");
+          if(m.indexOf("없습니다")>-1){
+            alert("공유할 파일이 없습니다.\n먼저 📗 엑셀저장을 한 뒤 공유하기를 눌러주세요.");
+          }else{
+            alert("공유에 실패했습니다.\n"+m);
+          }
         }
       }else if(navigator.share){
         await navigator.share({
