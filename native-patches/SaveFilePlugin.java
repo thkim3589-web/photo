@@ -128,4 +128,124 @@ public class SaveFilePlugin extends Plugin {
             call.reject("공유 실패: " + e.getMessage());
         }
     }
+
+    // ===== 대용량 파일용: 조각(chunk) 단위 저장 =====
+    // JS에서 파일 전체를 한 번에 넘기면 메모리 부족으로 앱이 종료될 수 있어,
+    // beginSave(저장 위치 선택) → writeChunk(여러 번) → finishSave 순서로 나눠서 기록한다.
+    private OutputStream pendingOut = null;
+    private OutputStream pendingCacheOut = null;
+    private File pendingCacheFile = null;
+    private String pendingMime = "application/octet-stream";
+
+    private void closePending(boolean deleteCache) {
+        try { if (pendingOut != null) pendingOut.close(); } catch (Exception ignore) {}
+        try { if (pendingCacheOut != null) pendingCacheOut.close(); } catch (Exception ignore) {}
+        if (deleteCache && pendingCacheFile != null) { try { pendingCacheFile.delete(); } catch (Exception ignore) {} }
+        pendingOut = null;
+        pendingCacheOut = null;
+        pendingCacheFile = null;
+    }
+
+    @PluginMethod
+    public void beginSave(PluginCall call) {
+        String filename = call.getString("filename", "저장파일");
+        String mimeType = call.getString("mimeType", "application/octet-stream");
+
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType(mimeType);
+        intent.putExtra(Intent.EXTRA_TITLE, filename);
+
+        startActivityForResult(call, intent, "beginSaveResult");
+    }
+
+    @ActivityCallback
+    private void beginSaveResult(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null) {
+            call.reject("사용자가 저장을 취소했습니다.");
+            return;
+        }
+        Uri uri = result.getData().getData();
+        if (uri == null) {
+            call.reject("저장 위치를 가져오지 못했습니다.");
+            return;
+        }
+        try {
+            closePending(true);
+            ContentResolver resolver = getContext().getContentResolver();
+            pendingOut = resolver.openOutputStream(uri);
+            if (pendingOut == null) {
+                call.reject("출력 스트림을 열 수 없습니다.");
+                return;
+            }
+            pendingMime = call.getString("mimeType", "application/octet-stream");
+
+            // 공유하기용 복사본(앱 cache) — 실패해도 저장 자체는 계속 진행
+            try {
+                String name = call.getString("filename", "저장파일").replaceAll("[\\\\/:*?\"<>|]", "_");
+                File dir = new File(getContext().getCacheDir(), "shared");
+                if (!dir.exists()) dir.mkdirs();
+                File[] old = dir.listFiles();
+                if (old != null) for (File f : old) f.delete();
+                pendingCacheFile = new File(dir, name);
+                pendingCacheOut = new FileOutputStream(pendingCacheFile);
+            } catch (Exception e) {
+                pendingCacheOut = null;
+                pendingCacheFile = null;
+            }
+
+            JSObject ret = new JSObject();
+            ret.put("uri", uri.toString());
+            call.resolve(ret);
+        } catch (Exception e) {
+            closePending(true);
+            call.reject("저장 시작 실패: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void writeChunk(PluginCall call) {
+        if (pendingOut == null) {
+            call.reject("저장이 시작되지 않았습니다.");
+            return;
+        }
+        try {
+            byte[] bytes = Base64.decode(call.getString("data", ""), Base64.DEFAULT);
+            pendingOut.write(bytes);
+            if (pendingCacheOut != null) {
+                try { pendingCacheOut.write(bytes); } catch (Exception e) { pendingCacheOut = null; }
+            }
+            call.resolve();
+        } catch (Exception e) {
+            closePending(true);
+            call.reject("파일 기록 실패: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void finishSave(PluginCall call) {
+        try {
+            if (pendingOut != null) { pendingOut.flush(); }
+            File done = pendingCacheFile;
+            boolean cacheOk = pendingCacheOut != null;
+            closePending(false);
+            if (cacheOk && done != null && done.exists()) {
+                lastSharedFile = done;
+                lastSharedMime = pendingMime;
+            } else {
+                lastSharedFile = null;
+            }
+            call.resolve();
+        } catch (Exception e) {
+            closePending(true);
+            call.reject("저장 마무리 실패: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void abortSave(PluginCall call) {
+        closePending(true);
+        call.resolve();
+    }
 }
