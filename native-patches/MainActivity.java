@@ -16,7 +16,7 @@ public class MainActivity extends BridgeActivity {
     // "앱을 열지 못했어요" 오류가 나는 것을 막기 위해 상태 저장을 생략한다.
     // (사진/입력 데이터는 WebView의 로컬 저장소에 별도 보관되므로 데이터 손실 없음)
     @Override
-    protected void onSaveInstanceState(Bundle outState) {
+    public void onSaveInstanceState(Bundle outState) {
         // intentionally does not call super.onSaveInstanceState(outState)
     }
 }
