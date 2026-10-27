@@ -4,10 +4,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
-// ---- 안드로이드 APK(Capacitor) 전용: saveAs를 네이티브 파일 저장으로 교체 ----
+// ---- 안드로이드 APK(Capacitor) 전용: saveAs를 네이티브 "다른 이름으로 저장" 창으로 교체 ----
 // 일반 브라우저/PWA에서는 FileSaver.js의 원래 동작(다운로드)을 그대로 쓰고,
-// Capacitor 네이티브 앱 안에서만 Filesystem(캐시에 저장) + Share(공유시트로
-// "다운로드함/파일 앱/카톡 등"에 저장하도록 유도)로 교체한다.
+// Capacitor 네이티브 앱 안에서만 안드로이드 시스템 "저장" 창(SaveFile 플러그인)을 띄워
+// 사용자가 "내 파일"/다운로드 등 원하는 폴더를 직접 선택해 저장하도록 한다.
 // (WebView 안에서는 blob: URL 다운로드가 기본적으로 동작하지 않아서 필요)
 (function () {
   function isNativeApp() {
@@ -25,6 +25,12 @@
       reader.readAsDataURL(blob);
     });
   }
+  function guessMimeType(filename) {
+    if (/\.xlsx$/i.test(filename)) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    if (/\.xls$/i.test(filename)) return "application/vnd.ms-excel";
+    if (/\.zip$/i.test(filename)) return "application/zip";
+    return "application/octet-stream";
+  }
   window.addEventListener("load", function () {
     if (!isNativeApp()) return; // 브라우저/PWA는 손대지 않음
     const originalSaveAs = window.saveAs;
@@ -33,27 +39,23 @@
         const blob = (blobOrContent instanceof Blob)
           ? blobOrContent
           : new Blob([blobOrContent]);
-        const Filesystem = window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem;
-        const Share = window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
-        if (!Filesystem) throw new Error("Filesystem 플러그인을 찾을 수 없습니다");
+        const SaveFile = window.Capacitor.Plugins && window.Capacitor.Plugins.SaveFile;
+        if (!SaveFile) throw new Error("SaveFile 플러그인을 찾을 수 없습니다");
         const base64 = await blobToBase64(blob);
         const safeName = String(filename || "저장파일").replace(/[\\/:*?"<>|]/g, "_");
-        const res = await Filesystem.writeFile({
-          path: safeName,
+        await SaveFile.saveFile({
+          filename: safeName,
+          mimeType: guessMimeType(safeName),
           data: base64,
-          directory: "CACHE",
         });
-        if (Share && Share.share) {
-          await Share.share({ title: safeName, url: res.uri, dialogTitle: `${safeName} 저장/공유` });
-        } else {
-          alert(`${safeName} 저장 완료\n${res.uri}`);
-        }
       } catch (err) {
         console.error("네이티브 저장 실패:", err);
+        const msg = String((err && err.message) || err || "");
+        if (msg.indexOf("취소") > -1) return; // 사용자가 저장 위치 선택을 취소한 경우 조용히 종료
         if (typeof originalSaveAs === "function") {
           try { originalSaveAs(blobOrContent, filename); return; } catch (e2) { /* fallthrough */ }
         }
-        alert("파일 저장에 실패했습니다.\n" + (err && err.message ? err.message : err));
+        alert("파일 저장에 실패했습니다.\n" + msg);
       }
     };
   });
@@ -139,6 +141,8 @@ const CHANGELOG_LATEST = [
   { id: 35, text: "리스트 엑셀 '⬇️ 다운로드' 시 파일명 끝에 날짜·시간(예: _20261004_1433)을 붙여 저장 — 매번 다른 파일로 구분 저장" },
   { id: 36, text: "유실점검 '조치결과' 자동 기록 문구를 '(위치) OO N개 유실되어 OO 재설치' 형식으로 변경 (예: 차도 원형 부착 표시기 1개 유실되어 표시못 재설치)" },
   { id: 37, text: "[APK 전용] 엑셀저장/다운로드/ZIP 압축이 앱(APK)에서 동작하지 않던 문제 수정 — 안드로이드 앱 안에서는 파일을 기기에 저장 후 공유시트로 바로 저장/전달 가능" },
+  { id: 38, text: "[APK 전용] 파일 저장 방식을 공유시트 → 안드로이드 '저장' 창으로 변경 — 저장 위치(내 파일/다운로드 등)를 직접 선택해 바로 저장 가능" },
+  { id: 39, text: "[APK 전용] 사진이 많을 때 '최근 앱' 목록에서 앱이 '열지 못했어요' 오류로 복귀 안 되던 문제 수정" },
 ];
 
 function showUpdateNotes(notes){

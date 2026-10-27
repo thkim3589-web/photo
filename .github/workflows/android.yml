@@ -45,6 +45,13 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      - name: Apply Native Code Patches
+        run: |
+          PKG_DIR="android/app/src/main/java/com/thkim/photo"
+          mkdir -p "$PKG_DIR"
+          cp native-patches/MainActivity.java "$PKG_DIR/MainActivity.java"
+          cp native-patches/SaveFilePlugin.java "$PKG_DIR/SaveFilePlugin.java"
+
       - name: Apply App Icon
         run: |
           sudo apt-get update -y && sudo apt-get install -y imagemagick
