@@ -31,6 +31,7 @@
     if (/\.zip$/i.test(filename)) return "application/zip";
     return "application/octet-stream";
   }
+  window.__blobToBase64 = blobToBase64;
   window.addEventListener("load", function () {
     if (!isNativeApp()) return; // 브라우저/PWA는 손대지 않음
     const originalSaveAs = window.saveAs;
@@ -48,6 +49,8 @@
           mimeType: guessMimeType(safeName),
           data: base64,
         });
+        // 📤 공유하기에서 방금 저장한 파일을 카톡/네이버 등으로 보낼 수 있도록 기억
+        window._lastSavedFile = { blob: blob, name: safeName };
       } catch (err) {
         console.error("네이티브 저장 실패:", err);
         const msg = String((err && err.message) || err || "");
@@ -143,7 +146,7 @@ const CHANGELOG_LATEST = [
   { id: 37, text: "[APK 전용] 엑셀저장/다운로드/ZIP 압축이 앱(APK)에서 동작하지 않던 문제 수정 — 안드로이드 앱 안에서는 파일을 기기에 저장 후 공유시트로 바로 저장/전달 가능" },
   { id: 38, text: "[APK 전용] 파일 저장 방식을 공유시트 → 안드로이드 '저장' 창으로 변경 — 저장 위치(내 파일/다운로드 등)를 직접 선택해 바로 저장 가능" },
   { id: 39, text: "[APK 전용] 사진이 많을 때 '최근 앱' 목록에서 앱이 '열지 못했어요' 오류로 복귀 안 되던 문제 수정" },
-  { id: 40, text: "[APK 전용] 📤 공유하기 버튼이 앱(APK)에서 동작하지 않던 문제 수정 — 안드로이드 공유창으로 연결" },
+  { id: 40, text: "[APK 전용] 📤 공유하기 버튼이 앱(APK)에서 동작하지 않던 문제 수정 — 엑셀저장 후 공유하기를 누르면 방금 저장한 파일이 첨부되어 카톡/네이버 등으로 전송 가능" },
 ];
 
 function showUpdateNotes(notes){
@@ -3861,11 +3864,21 @@ ${manageNo}_지중 표시기 보강 작업_현장 작업사진.xlsx`;
         && window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
       if(nativeShare){
         // 안드로이드 앱(APK): WebView에는 navigator.share가 없으므로 네이티브 공유 플러그인 사용
-        await nativeShare.share({
-          title:"현장사진관리",
-          text:shareText,
-          dialogTitle:"공유하기"
-        });
+        const last = window._lastSavedFile;
+        const FS = window.Capacitor.Plugins.Filesystem;
+        if(last && FS && window.__blobToBase64){
+          // 방금 저장한 엑셀(또는 ZIP) 파일을 첨부해서 공유
+          const b64 = await window.__blobToBase64(last.blob);
+          const w = await FS.writeFile({ path:last.name, data:b64, directory:"CACHE" });
+          await nativeShare.share({
+            title:last.name,
+            text:shareText,
+            url:w.uri,
+            dialogTitle:"공유하기"
+          });
+        }else{
+          alert("공유할 파일이 없습니다.\n먼저 📗 엑셀저장을 한 뒤 공유하기를 눌러주세요.");
+        }
       }else if(navigator.share){
         await navigator.share({
           title:"현장사진관리",
