@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -41,14 +45,39 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      - name: Apply App Icon
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y imagemagick
+          for pair in "mdpi:48" "hdpi:72" "xhdpi:96" "xxhdpi:144" "xxxhdpi:192"; do
+            dens="${pair%%:*}"; px="${pair##*:}"
+            dir="android/app/src/main/res/mipmap-${dens}"
+            mkdir -p "$dir"
+            convert icon-512.png -resize ${px}x${px} "$dir/ic_launcher.png"
+            convert icon-512.png -resize ${px}x${px} "$dir/ic_launcher_round.png"
+            convert icon-512.png -resize ${px}x${px} "$dir/ic_launcher_foreground.png"
+          done
+
       - name: Build APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Upload APK
+      - name: Rename APK
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk 현장사진관리.apk
+
+      - name: Upload APK (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: 현장사진관리.apk
+
+      - name: Publish APK to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-apk
+          name: 현장사진관리 최신 APK
+          body: 매 push마다 자동으로 다시 빌드된 최신 APK입니다. (디버그 서명, 설치 전 "출처를 알 수 없는 앱 설치" 허용 필요)
+          files: 현장사진관리.apk
+          make_latest: false
