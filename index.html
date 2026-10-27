@@ -4,6 +4,62 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
+// ---- 안드로이드 APK(Capacitor) 전용: saveAs를 네이티브 파일 저장으로 교체 ----
+// 일반 브라우저/PWA에서는 FileSaver.js의 원래 동작(다운로드)을 그대로 쓰고,
+// Capacitor 네이티브 앱 안에서만 Filesystem(캐시에 저장) + Share(공유시트로
+// "다운로드함/파일 앱/카톡 등"에 저장하도록 유도)로 교체한다.
+// (WebView 안에서는 blob: URL 다운로드가 기본적으로 동작하지 않아서 필요)
+(function () {
+  function isNativeApp() {
+    return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  }
+  function blobToBase64(blob) {
+    return new Promise(function (resolve, reject) {
+      const reader = new FileReader();
+      reader.onloadend = function () {
+        const result = reader.result || "";
+        const comma = result.indexOf(",");
+        resolve(comma >= 0 ? result.slice(comma + 1) : result);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+  window.addEventListener("load", function () {
+    if (!isNativeApp()) return; // 브라우저/PWA는 손대지 않음
+    const originalSaveAs = window.saveAs;
+    window.saveAs = async function (blobOrContent, filename) {
+      try {
+        const blob = (blobOrContent instanceof Blob)
+          ? blobOrContent
+          : new Blob([blobOrContent]);
+        const Filesystem = window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem;
+        const Share = window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
+        if (!Filesystem) throw new Error("Filesystem 플러그인을 찾을 수 없습니다");
+        const base64 = await blobToBase64(blob);
+        const safeName = String(filename || "저장파일").replace(/[\\/:*?"<>|]/g, "_");
+        const res = await Filesystem.writeFile({
+          path: safeName,
+          data: base64,
+          directory: "CACHE",
+        });
+        if (Share && Share.share) {
+          await Share.share({ title: safeName, url: res.uri, dialogTitle: `${safeName} 저장/공유` });
+        } else {
+          alert(`${safeName} 저장 완료\n${res.uri}`);
+        }
+      } catch (err) {
+        console.error("네이티브 저장 실패:", err);
+        if (typeof originalSaveAs === "function") {
+          try { originalSaveAs(blobOrContent, filename); return; } catch (e2) { /* fallthrough */ }
+        }
+        alert("파일 저장에 실패했습니다.\n" + (err && err.message ? err.message : err));
+      }
+    };
+  });
+})();
+</script>
+<script>
 // ---- 사진 압축 처리 모니터링 (배지 표시) + 엑셀저장 진행 상태 오버레이 ----
 // 페이지 전체 어디서나 호출할 수 있도록 전역으로 선언
 window._pendingPhotoLoads = window._pendingPhotoLoads || 0;
@@ -82,6 +138,7 @@ const CHANGELOG_LATEST = [
   { id: 34, text: "유실점검(보수)만 적용할 때는 공사/현행화·Eng번호·완료여부·작업 완료일을 건드리지 않도록 수정 — 기존 작업 완료일이 유실점검 때문에 바뀌던 문제 해결" },
   { id: 35, text: "리스트 엑셀 '⬇️ 다운로드' 시 파일명 끝에 날짜·시간(예: _20261004_1433)을 붙여 저장 — 매번 다른 파일로 구분 저장" },
   { id: 36, text: "유실점검 '조치결과' 자동 기록 문구를 '(위치) OO N개 유실되어 OO 재설치' 형식으로 변경 (예: 차도 원형 부착 표시기 1개 유실되어 표시못 재설치)" },
+  { id: 37, text: "[APK 전용] 엑셀저장/다운로드/ZIP 압축이 앱(APK)에서 동작하지 않던 문제 수정 — 안드로이드 앱 안에서는 파일을 기기에 저장 후 공유시트로 바로 저장/전달 가능" },
 ];
 
 function showUpdateNotes(notes){
