@@ -54,15 +54,12 @@ jobs:
 
       - name: Apply App Icon
         run: |
-          sudo apt-get update -y && sudo apt-get install -y imagemagick
-          for pair in "mdpi:48" "hdpi:72" "xhdpi:96" "xxhdpi:144" "xxxhdpi:192"; do
-            dens="${pair%%:*}"; px="${pair##*:}"
-            dir="android/app/src/main/res/mipmap-${dens}"
-            mkdir -p "$dir"
-            convert icon-512.png -resize ${px}x${px} "$dir/ic_launcher.png"
-            convert icon-512.png -resize ${px}x${px} "$dir/ic_launcher_round.png"
-            convert icon-512.png -resize ${px}x${px} "$dir/ic_launcher_foreground.png"
+          RES="android/app/src/main/res"
+          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            mkdir -p "$RES/mipmap-$d"
+            cp native-patches/icons/mipmap-$d/*.png "$RES/mipmap-$d/"
           done
+          cp native-patches/icons/ic_launcher_background.xml "$RES/values/ic_launcher_background.xml"
 
       - name: Build APK
         run: |
