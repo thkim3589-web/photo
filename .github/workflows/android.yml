@@ -38,6 +38,9 @@ jobs:
         run: |
           mkdir -p www
           cp index.html www/index.html
+          # 앱 안의 "새 버전 확인"이 비교할 빌드 번호를 주입
+          sed -i "s/window.APP_BUILD = 0;/window.APP_BUILD = ${{ github.run_number }};/" www/index.html
+          grep -c "window.APP_BUILD = ${{ github.run_number }};" www/index.html
 
       - name: Add Android Platform
         run: |
@@ -83,6 +86,7 @@ jobs:
       - name: Rename APK
         run: |
           cp android/app/build/outputs/apk/debug/app-signed.apk 현장사진관리.apk
+          cp android/app/build/outputs/apk/debug/app-signed.apk photo-app.apk
 
       - name: Upload APK (artifact)
         uses: actions/upload-artifact@v4
@@ -95,6 +99,8 @@ jobs:
         with:
           tag_name: latest-apk
           name: 현장사진관리 최신 APK
-          body: 매 push마다 자동으로 다시 빌드된 최신 APK입니다. (디버그 서명, 설치 전 "출처를 알 수 없는 앱 설치" 허용 필요)
-          files: 현장사진관리.apk
+          body: |
+            build:${{ github.run_number }}
+            매 push마다 자동으로 다시 빌드된 최신 APK입니다. (설치 전 "출처를 알 수 없는 앱 설치" 허용 필요)
+          files: photo-app.apk
           make_latest: false

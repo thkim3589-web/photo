@@ -248,4 +248,22 @@ public class SaveFilePlugin extends Plugin {
         closePending(true);
         call.resolve();
     }
+
+    // 새 버전 업데이트: 우리 저장소(GitHub)의 주소만 기본 브라우저로 열어 APK를 내려받게 한다
+    @PluginMethod
+    public void openUrl(PluginCall call) {
+        try {
+            String url = call.getString("url", "");
+            if (!url.startsWith("https://github.com/thkim3589-web/photo/")) {
+                call.reject("허용되지 않은 주소입니다.");
+                return;
+            }
+            Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getActivity().startActivity(i);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("열기 실패: " + e.getMessage());
+        }
+    }
 }

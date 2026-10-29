@@ -163,6 +163,7 @@ const CHANGELOG_LATEST = [
   { id: 42, text: "[APK 전용] 앱 아이콘이 상자 안에 작게 들어간 모양으로 보이던 문제 수정 — 홈 화면에서 원형/둥근 모양에 맞게 꽉 차게 표시" },
   { id: 43, text: "엑셀 불러오기→적용→다운로드 시 파일 용량이 원본보다 3~7배 커지던 문제 수정 (압축 저장)" },
   { id: 44, text: "다운로드 파일명 뒤에 날짜가 계속 쌓여 길어지던 문제 수정 — 기존 날짜를 새 날짜로 교체" },
+  { id: 45, text: "[APK 전용] 앱을 열 때 새 버전이 있으면 '🔔 새 버전이 있습니다' 안내가 뜨고, 눌러서 바로 업데이트 가능" },
 ];
 
 function showUpdateNotes(notes){
@@ -3968,6 +3969,55 @@ if ('serviceWorker' in navigator) {
 
 </div>
 
+<script>
+// ---- [APK 전용] 새 버전 알림 ----
+// 빌드할 때 아래 숫자가 빌드 번호로 바뀐다(브라우저/PWA에서는 0이고 동작하지 않음).
+window.APP_BUILD = 0;
+(function () {
+  const API = "https://api.github.com/repos/thkim3589-web/photo/releases/tags/latest-apk";
+  const APK_URL = "https://github.com/thkim3589-web/photo/releases/download/latest-apk/photo-app.apk";
+  function isNativeApp() {
+    return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  }
+  function showUpdateBanner(latest) {
+    if (document.getElementById("appUpdateBanner")) return;
+    const box = document.createElement("div");
+    box.id = "appUpdateBanner";
+    box.style.cssText = "position:fixed;left:10px;right:10px;bottom:12px;z-index:2147483000;background:#fff;border:2px solid #0b5ed7;border-radius:14px;padding:12px 14px;box-shadow:0 6px 24px rgba(0,0,0,.28);font-family:inherit;";
+    box.innerHTML =
+      '<div style="font-weight:700;font-size:15px;color:#0b3d91;margin-bottom:4px;">🔔 새 버전이 있습니다</div>' +
+      '<div style="font-size:13px;color:#333;line-height:1.45;margin-bottom:10px;">최신 버전으로 업데이트하면 수정된 기능을 사용할 수 있습니다.<br>다운로드가 끝나면 알림이나 다운로드 폴더에서 파일을 눌러 설치하세요. (기존 데이터는 유지됩니다)</div>' +
+      '<div style="display:flex;gap:8px;">' +
+        '<button id="appUpdateGo" style="flex:1;padding:10px;border:0;border-radius:10px;background:#0b5ed7;color:#fff;font-weight:700;font-size:14px;">지금 업데이트</button>' +
+        '<button id="appUpdateLater" style="flex:0 0 90px;padding:10px;border:0;border-radius:10px;background:#e5e7eb;color:#333;font-size:14px;">나중에</button>' +
+      '</div>';
+    document.body.appendChild(box);
+    document.getElementById("appUpdateLater").onclick = function () { box.remove(); };
+    document.getElementById("appUpdateGo").onclick = async function () {
+      try {
+        const SF = window.Capacitor.Plugins && window.Capacitor.Plugins.SaveFile;
+        if (SF && SF.openUrl) await SF.openUrl({ url: APK_URL });
+        else window.open(APK_URL, "_blank");
+      } catch (e) {
+        alert("업데이트 페이지를 열지 못했습니다.\n" + (e && e.message ? e.message : e));
+      }
+    };
+  }
+  async function checkForUpdate() {
+    try {
+      if (!isNativeApp() || !window.APP_BUILD) return;
+      const res = await fetch(API, { cache: "no-store" });
+      if (!res.ok) return;
+      const j = await res.json();
+      const m = /build:(\d+)/.exec(String((j && j.body) || ""));
+      if (!m) return;
+      if (Number(m[1]) > Number(window.APP_BUILD)) showUpdateBanner(Number(m[1]));
+    } catch (e) { /* 인터넷이 없거나 조회 실패 시 조용히 무시 */ }
+  }
+  window.__checkForUpdate = checkForUpdate;
+  window.addEventListener("load", function () { setTimeout(checkForUpdate, 3000); });
+})();
+</script>
 </body>
 
 
