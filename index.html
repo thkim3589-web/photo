@@ -165,6 +165,7 @@ const CHANGELOG_LATEST = [
   { id: 44, text: "다운로드 파일명 뒤에 날짜가 계속 쌓여 길어지던 문제 수정 — 기존 날짜를 새 날짜로 교체" },
   { id: 45, text: "[APK 전용] 앱을 열 때 새 버전이 있으면 '🔔 새 버전이 있습니다' 안내가 뜨고, 눌러서 바로 업데이트 가능" },
   { id: 46, text: "⚙️ 설정 창 추가 — 사진 크기(압축 정도), 사용 안내, 업데이트 내역, 앱 버전·업데이트 확인, 사진 전체 삭제를 한곳에 모음 (메인 화면의 '전체 삭제' 버튼은 설정으로 이동)" },
+  { id: 47, text: "설정에 '다운로드 파일명의 날짜' 추가 — 뒤에 붙이기(기본) / 앞에 붙이기 / 붙이지 않기 선택" },
 ];
 
 function showUpdateNotes(notes){
@@ -3755,16 +3756,22 @@ document.addEventListener("DOMContentLoaded", () => {
     const dotIdx = base.lastIndexOf(".");
     let stem = dotIdx > -1 ? base.slice(0, dotIdx) : base;
     const ext = dotIdx > -1 ? base.slice(dotIdx) : "";
-    // 이미 붙어 있는 "_YYYYMMDD_HHmm" 꼬리표는 모두 지우고 새 날짜로 교체 (이름이 계속 길어지지 않게)
-    stem = stem.replace(/(_\d{8}_\d{4})+$/, "");
+    // 이미 붙어 있는 날짜 꼬리표/머리표("_YYYYMMDD_HHmm" 또는 "YYYYMMDD_HHmm_")는 모두 지우고 한 번만 새로 붙인다
+    // (이름이 계속 길어지지 않게)
+    stem = stem.replace(/(_\d{8}_\d{4})+$/, "").replace(/^(\d{8}_\d{4}_)+/, "");
+    let mode = "suffix";
+    try { mode = localStorage.getItem("fileNameDateMode") || "suffix"; } catch (e) {}
+    if (mode === "none") return `${stem}${ext}`;
     const now = new Date();
     const y = now.getFullYear();
     const mo = String(now.getMonth() + 1).padStart(2, "0");
     const d = String(now.getDate()).padStart(2, "0");
     const h = String(now.getHours()).padStart(2, "0");
     const mi = String(now.getMinutes()).padStart(2, "0");
-    return `${stem}_${y}${mo}${d}_${h}${mi}${ext}`;
+    const stamp = `${y}${mo}${d}_${h}${mi}`;
+    return mode === "prefix" ? `${stamp}_${stem}${ext}` : `${stem}_${stamp}${ext}`;
   }
+  window.__withDateTimeSuffix = withDateTimeSuffix;
 });
 </script>
 
@@ -4043,6 +4050,15 @@ window.APP_BUILD = 0;
     </div>
     <div style="font-size:10px;color:#888;margin-top:5px;line-height:1.4;">앞으로 새로 찍는 사진부터 적용됩니다. 이미 찍은 사진은 바뀌지 않습니다.</div>
 
+    <div style="font-size:12px;font-weight:700;color:#666;margin:14px 0 6px;">📝 다운로드 파일명의 날짜</div>
+    <div id="nameModeGroup" style="display:flex;gap:6px;">
+      <button type="button" class="st-name" data-mode="suffix" style="flex:1;padding:9px 2px;border:2px solid #d0d5dd;border-radius:10px;background:#fff;font-size:12px;font-weight:700;">뒤에 붙이기<br><span style="font-weight:400;font-size:10px;color:#777;">기본값</span></button>
+      <button type="button" class="st-name" data-mode="prefix" style="flex:1;padding:9px 2px;border:2px solid #d0d5dd;border-radius:10px;background:#fff;font-size:12px;font-weight:700;">앞에 붙이기<br><span style="font-weight:400;font-size:10px;color:#777;">날짜순 정렬</span></button>
+      <button type="button" class="st-name" data-mode="none" style="flex:1;padding:9px 2px;border:2px solid #d0d5dd;border-radius:10px;background:#fff;font-size:12px;font-weight:700;">붙이지 않기<br><span style="font-weight:400;font-size:10px;color:#777;">원본 이름</span></button>
+    </div>
+    <div id="nameModeExample" style="font-size:11px;color:#0b3d91;margin-top:6px;word-break:break-all;"></div>
+    <div style="font-size:10px;color:#888;margin-top:3px;line-height:1.4;">⬇️ 다운로드로 저장하는 엑셀 파일명에 적용됩니다. 이미 붙어 있던 날짜는 지우고 새로 한 번만 붙입니다.</div>
+
     <div style="font-size:12px;font-weight:700;color:#666;margin:14px 0 6px;">📖 도움말</div>
     <div style="display:flex;gap:6px;">
       <button type="button" id="stGuide" class="st-btn" style="flex:1;padding:10px;border:none;border-radius:10px;background:#e8f0fe;color:#0b3d91;font-weight:700;font-size:13px;">사용 안내</button>
@@ -4084,6 +4100,22 @@ window.APP_BUILD = 0;
       b.style.color = on ? "#0b3d91" : "#333";
     });
   }
+  function getNameMode() {
+    let v = null;
+    try { v = localStorage.getItem("fileNameDateMode"); } catch (e) {}
+    return (v === "prefix" || v === "none") ? v : "suffix";
+  }
+  function paintName() {
+    const cur = getNameMode();
+    document.querySelectorAll(".st-name").forEach(function (b) {
+      const on = b.dataset.mode === cur;
+      b.style.borderColor = on ? "#0b5ed7" : "#d0d5dd";
+      b.style.background = on ? "#e8f0fe" : "#fff";
+      b.style.color = on ? "#0b3d91" : "#333";
+    });
+    const ex = document.getElementById("nameModeExample");
+    if (ex && window.__withDateTimeSuffix) ex.textContent = "예) " + window.__withDateTimeSuffix("공정파일.xlsx");
+  }
   function versionText() {
     if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.APP_BUILD) {
       return "앱 빌드 " + window.APP_BUILD;
@@ -4094,6 +4126,7 @@ window.APP_BUILD = 0;
   }
   function openSettings() {
     paintSize();
+    paintName();
     document.getElementById("stVersion").textContent = versionText();
     document.getElementById("settingsOverlay").style.display = "flex";
   }
@@ -4110,6 +4143,12 @@ window.APP_BUILD = 0;
       b.addEventListener("click", function () {
         try { localStorage.setItem("photoSizeLevel", b.dataset.level); } catch (e) {}
         paintSize();
+      });
+    });
+    document.querySelectorAll(".st-name").forEach(function (b) {
+      b.addEventListener("click", function () {
+        try { localStorage.setItem("fileNameDateMode", b.dataset.mode); } catch (e) {}
+        paintName();
       });
     });
     document.getElementById("stGuide").addEventListener("click", function () { closeSettings(); openGuide(); });
