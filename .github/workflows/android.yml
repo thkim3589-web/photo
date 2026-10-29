@@ -67,9 +67,22 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
+      - name: Sign APK with fixed key
+        run: |
+          set -e
+          # 빌드마다 서명 키가 바뀌면 기존 앱 위에 덮어 설치가 안 되므로, 저장소의 고정 키로 서명한다
+          APKSIGNER=$(ls $ANDROID_HOME/build-tools/*/apksigner | sort -V | tail -1)
+          export KS_PASS=$(grep -m1 'Key store password:' signing-key-info.txt | sed 's/^[^:]*: *//' | tr -d '\r')
+          export KEY_PASS=$(grep -m1 'Key password:' signing-key-info.txt | sed 's/^[^:]*: *//' | tr -d '\r')
+          OUT=android/app/build/outputs/apk/debug
+          "$APKSIGNER" sign --ks signing.keystore --ks-key-alias my-key-alias \
+            --ks-pass env:KS_PASS --key-pass env:KEY_PASS \
+            --out $OUT/app-signed.apk $OUT/app-debug.apk
+          "$APKSIGNER" verify --print-certs $OUT/app-signed.apk | head -3
+
       - name: Rename APK
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk 현장사진관리.apk
+          cp android/app/build/outputs/apk/debug/app-signed.apk 현장사진관리.apk
 
       - name: Upload APK (artifact)
         uses: actions/upload-artifact@v4
