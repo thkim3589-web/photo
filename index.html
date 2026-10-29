@@ -780,6 +780,9 @@ buttons.forEach(btn=>{
     btn.disabled=!ok;
     btn.style.opacity=ok?"1":"0.4";
 });
+// 설정 버튼은 관리번호가 없어도 눌려야 하므로 비활성화는 하지 않고, 다른 버튼과 같은 흐림 정도만 맞춘다
+const settingsBtnEl=document.getElementById("settingsBtn");
+if(settingsBtnEl) settingsBtnEl.style.opacity=ok?"1":"0.4";
 
 const fabCamera=document.getElementById("fabCamera");
 if(fabCamera){
