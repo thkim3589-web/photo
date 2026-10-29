@@ -161,6 +161,7 @@ const CHANGELOG_LATEST = [
   { id: 40, text: "[APK 전용] 📤 공유하기 버튼이 앱(APK)에서 동작하지 않던 문제 수정 — 엑셀저장 후 공유하기를 누르면 방금 저장한 파일이 첨부되어 카톡/네이버 등으로 전송 가능" },
   { id: 41, text: "[APK 전용] 용량이 큰 엑셀(불러오기 후 적용→다운로드 등)을 저장할 때 앱이 꺼지던 문제 수정 — 파일을 조각으로 나눠 저장" },
   { id: 42, text: "[APK 전용] 앱 아이콘이 상자 안에 작게 들어간 모양으로 보이던 문제 수정 — 홈 화면에서 원형/둥근 모양에 맞게 꽉 차게 표시" },
+  { id: 43, text: "엑셀 불러오기→적용→다운로드 시 파일 용량이 원본보다 3~7배 커지던 문제 수정 (압축 저장)" },
 ];
 
 function showUpdateNotes(notes){
@@ -3109,9 +3110,13 @@ document.addEventListener("DOMContentLoaded", () => {
       zip.file("xl/styles.xml", finalStylesXml);
     }
 
+    // 압축 옵션을 주지 않으면 JSZip이 압축 없이(STORE) 저장해서 파일 용량이 3~7배로 커진다.
+    // 엑셀 원본과 동일하게 DEFLATE 압축으로 저장해 용량을 원본 수준으로 유지한다.
     return await zip.generateAsync({
       type: "blob",
       mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      compression: "DEFLATE",
+      compressionOptions: { level: 6 },
     });
   }
 
