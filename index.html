@@ -166,6 +166,7 @@ const CHANGELOG_LATEST = [
   { id: 45, text: "[APK 전용] 앱을 열 때 새 버전이 있으면 '🔔 새 버전이 있습니다' 안내가 뜨고, 눌러서 바로 업데이트 가능" },
   { id: 46, text: "⚙️ 설정 창 추가 — 사진 크기(압축 정도), 사용 안내, 업데이트 내역, 앱 버전·업데이트 확인, 사진 전체 삭제를 한곳에 모음 (메인 화면의 '전체 삭제' 버튼은 설정으로 이동)" },
   { id: 47, text: "설정에 '다운로드 파일명의 날짜' 추가 — 뒤에 붙이기(기본) / 앞에 붙이기 / 붙이지 않기 선택" },
+  { id: 48, text: "적용 시 'ENG번호' 시트에 해당 월 번호가 없으면 기존 Eng 번호가 빈 칸으로 지워지던 문제 수정 — 기존 값을 유지하고 안내 표시" },
 ];
 
 function showUpdateNotes(notes){
@@ -3603,6 +3604,7 @@ document.addEventListener("DOMContentLoaded", () => {
           oldNail > 0 || oldSticker > 0 || oldSignBoard > 0 ||
           newNail > 0 || newSticker > 0 || crossing > 0 || signBoard > 0 || lacquer > 0 ||
           depthNail > 0 || depthSticker > 0 || depthCrossing > 0;
+        window._engNoMissingMonth = null;
         if (hasConstructionWork) {
           const workDate = new Date();
           const monthLabel = `${workDate.getMonth() + 1}월`;
@@ -3612,7 +3614,9 @@ document.addEventListener("DOMContentLoaded", () => {
           const engNo = getEngNo(workbook, monthLabel, hasNew) || "";
 
           writeText(headerMap["공사/현행화"], constructionType);
-          writeText(headerMap["Eng 번호"], engNo);
+          // ⚠️ ENG번호 시트에 해당 월 번호가 없으면(빈 값) 기존에 적혀 있던 Eng 번호를 지우지 않고 그대로 둔다
+          if (engNo) writeText(headerMap["Eng 번호"], engNo);
+          else window._engNoMissingMonth = monthLabel;
           writeText(headerMap["완료여부"], "완료");
           writeDate(headerMap["작업 완료일"], workDate);
         }
@@ -3685,6 +3689,12 @@ document.addEventListener("DOMContentLoaded", () => {
           });
         if (window._resetLossLocationUI) window._resetLossLocationUI();
         lastAutoLookupManageNo = null;
+
+        if (window._engNoMissingMonth) {
+          const mm = window._engNoMissingMonth;
+          window._engNoMissingMonth = null;
+          alert(`"ENG번호" 시트에 ${mm} 번호가 없어서 Eng 번호는 기존 값을 그대로 두었습니다.\n필요하면 엑셀에서 직접 입력해 주세요.`);
+        }
 
       } catch (err) {
         alert("적용 오류: " + err.message);
