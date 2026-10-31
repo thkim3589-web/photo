@@ -170,6 +170,7 @@ const CHANGELOG_LATEST = [
   { id: 49, text: "[APK 전용] 새 버전 알림이 화면 위쪽에 표시되도록 변경" },
   { id: 50, text: "📖 사용 안내에 저장·공유·ZIP, 설정창, 업데이트 알림 설명 추가" },
   { id: 51, text: "화면 좌우 여백을 없애 꽉 차게 표시, [APK 전용] 상단 상태바(시간·배터리 등)가 가려지지 않도록 수정" },
+  { id: 52, text: "담당자 이름 입력칸을 ⚙️ 설정 창으로 이동 (메인 헤더에는 이름만 표시)" },
 ];
 
 function showUpdateNotes(notes){
@@ -1213,9 +1214,7 @@ try{
 <div class="header" style="position:relative;background:#003399;height:42px;border-radius:12px;margin-bottom:15px;display:flex;flex-direction:row;align-items:center;justify-content:space-between;padding:0 14px;overflow:hidden;">
 <div style="color:white;font-size:14px;font-weight:700;white-space:nowrap;">현장사진관리</div>
 <div style="color:white;font-size:11px;font-weight:700;display:flex;flex-direction:row;align-items:center;gap:3px;white-space:nowrap;">
-<span>담당자 :</span>
-<input type="text" id="managerName" value="김태호" maxlength="6"
-style="width:60px;min-height:auto;height:20px;border:none;background:transparent;color:white;font-weight:700;outline:none;font-size:11px;padding:0;">
+<span>담당자 :</span><span id="managerLabel">김태호</span>
 </div>
 </div>
 
@@ -1936,7 +1935,7 @@ document.addEventListener("DOMContentLoaded",()=>{
  if(!manager) return;
 
  manager.addEventListener("change",()=>{
-   alert("담당자명이 저장되었습니다.\n담당자 : " + manager.value);
+   alert("담당자명이 저장되었습니다.\n담당자 : " + ((manager.value||"").trim() || "김태호"));
  });
 });
 </script>
@@ -4070,6 +4069,15 @@ window.APP_BUILD = 0;
   window.addEventListener("load", function () { setTimeout(function () { checkForUpdate(false); }, 3000); });
 })();
 </script>
+<script>
+document.addEventListener("DOMContentLoaded",function(){
+  var m=document.getElementById("managerName"), l=document.getElementById("managerLabel");
+  if(!m||!l) return;
+  function s(){ l.textContent=(m.value||"").trim()||"김태호"; }
+  s();
+  m.addEventListener("input",s); m.addEventListener("change",s); m.addEventListener("blur",s);
+});
+</script>
 <div id="settingsOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99990;align-items:center;justify-content:center;">
   <div style="background:#fff;width:92%;max-width:420px;max-height:88vh;overflow-y:auto;border-radius:16px;padding:16px 16px 14px;box-shadow:0 10px 40px rgba(0,0,0,.35);">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
@@ -4077,7 +4085,11 @@ window.APP_BUILD = 0;
       <button id="settingsClose" style="border:none;background:#eef0f3;border-radius:50%;width:30px;height:30px;font-size:15px;">✕</button>
     </div>
 
-    <div style="font-size:12px;font-weight:700;color:#666;margin:8px 0 6px;">📷 사진 크기 (압축 정도)</div>
+    <div style="font-size:12px;font-weight:700;color:#666;margin:8px 0 6px;">👤 담당자 이름</div>
+    <input type="text" id="managerName" value="김태호" maxlength="6" placeholder="담당자 이름" style="width:100%;box-sizing:border-box;min-height:40px;padding:0 12px;border:2px solid #d0d5dd;border-radius:10px;font-size:14px;">
+    <div style="font-size:10px;color:#888;margin-top:5px;line-height:1.4;">엑셀 사진대지 등에 들어가는 이름입니다. 최대 6글자, 자동 저장됩니다.</div>
+
+    <div style="font-size:12px;font-weight:700;color:#666;margin:14px 0 6px;">📷 사진 크기 (압축 정도)</div>
     <div id="photoSizeGroup" style="display:flex;gap:6px;">
       <button type="button" class="st-size" data-level="small" style="flex:1;padding:9px 2px;border:2px solid #d0d5dd;border-radius:10px;background:#fff;font-size:12px;font-weight:700;">작게<br><span style="font-weight:400;font-size:10px;color:#777;">용량 적음</span></button>
       <button type="button" class="st-size" data-level="normal" style="flex:1;padding:9px 2px;border:2px solid #d0d5dd;border-radius:10px;background:#fff;font-size:12px;font-weight:700;">보통<br><span style="font-weight:400;font-size:10px;color:#777;">기본값</span></button>
