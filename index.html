@@ -171,6 +171,7 @@ const CHANGELOG_LATEST = [
   { id: 50, text: "📖 사용 안내에 저장·공유·ZIP, 설정창, 업데이트 알림 설명 추가" },
   { id: 51, text: "화면 좌우 여백을 없애 꽉 차게 표시, [APK 전용] 상단 상태바(시간·배터리 등)가 가려지지 않도록 수정" },
   { id: 52, text: "담당자 이름 입력칸을 ⚙️ 설정 창으로 이동 (메인 헤더에는 이름만 표시)" },
+  { id: 53, text: "메인 화면의 '📖 사용법' 버튼과 버전 표시를 ⚙️ 설정 창으로 일원화 (화면이 더 깔끔해짐)" },
 ];
 
 function showUpdateNotes(notes){
@@ -1218,10 +1219,7 @@ try{
 </div>
 </div>
 
-<div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:-11px;margin-bottom:10px;padding-right:4px;">
-    <button onclick="openGuide()" style="border:none;background:none;color:#0056b3;font-size:11px;font-weight:bold;padding:0;cursor:pointer;">📖 사용법</button>
-    <div style="font-size:10px;color:#999;" id="appVersionBadge">버전 확인 중...</div>
-</div>
+<div style="display:none;"><div id="appVersionBadge">버전 확인 중...</div></div>
 
     
 <div class="material-box" style="margin-bottom:8px;">
