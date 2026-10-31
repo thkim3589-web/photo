@@ -168,6 +168,7 @@ const CHANGELOG_LATEST = [
   { id: 47, text: "설정에 '다운로드 파일명의 날짜' 추가 — 뒤에 붙이기(기본) / 앞에 붙이기 / 붙이지 않기 선택" },
   { id: 48, text: "적용 시 'ENG번호' 시트에 해당 월 번호가 없으면 기존 Eng 번호가 빈 칸으로 지워지던 문제 수정 — 기존 값을 유지하고 안내 표시" },
   { id: 49, text: "[APK 전용] 새 버전 알림이 화면 위쪽에 표시되도록 변경" },
+  { id: 50, text: "📖 사용 안내에 저장·공유·ZIP, 설정창, 업데이트 알림 설명 추가" },
 ];
 
 function showUpdateNotes(notes){
@@ -1135,7 +1136,7 @@ try{
     </div>
     <div class="g-flow-step">
       <div class="g-icon-col"><div class="g-icon" style="background:#e8fafc;">⬇️</div></div>
-      <div class="g-body"><h4>⑤ 다운로드 / 엑셀저장</h4><p>모든 건을 적용한 뒤 마지막에 한 번, 최종 파일을 저장합니다.</p></div>
+      <div class="g-body"><h4>⑤ 다운로드 / 엑셀저장</h4><p>모든 건을 적용한 뒤 마지막에 한 번, 최종 파일을 저장합니다. 저장 위치를 고르는 창이 뜹니다.</p></div>
     </div>
 
     <div class="g-section-title"><span class="n">2</span>공정파일 불러오기</div>
@@ -1179,6 +1180,28 @@ try{
       <tr><td>수량 0(점검만 함)</td><td>확인일만 기록, 조치결과는 비워둠</td></tr>
     </table>
     <div class="g-callout">💡&nbsp;<span>유실점검(보수)은 <b>공사 후 3년 무상서비스</b> 개념이라 "공사/현행화" 구분이나 Eng번호 판정에는 영향을 주지 않습니다.</span></div>
+
+    <div class="g-section-title"><span class="n">4</span>저장 · 공유 · 압축</div>
+    <div class="g-section-sub">파일을 저장하고 전달하는 방법</div>
+    <table class="g-table">
+      <tr><th>버튼</th><th>하는 일</th></tr>
+      <tr><td style="white-space:nowrap;">📗 엑셀저장</td><td>작업 중인 내용을 엑셀로 저장 (저장 위치 선택 창)</td></tr>
+      <tr><td style="white-space:nowrap;">⬇️ 다운로드</td><td>불러온 공정파일에 입력 내용을 반영해 저장</td></tr>
+      <tr><td style="white-space:nowrap;">📤 공유하기</td><td>방금 저장한 파일을 카카오톡·네이버 등으로 전달</td></tr>
+      <tr><td style="white-space:nowrap;">📁 ZIP 압축</td><td>사진을 폴더별로 묶어 한 파일로 저장</td></tr>
+    </table>
+    <div class="g-callout">💡&nbsp;<span>공유하기는 <b>먼저 저장을 한 뒤</b> 누르세요. 가장 최근에 저장한 파일이 전달됩니다. 파일명 끝의 날짜·시간은 설정에서 바꿀 수 있습니다.</span></div>
+
+    <div class="g-section-title"><span class="n">5</span>⚙️ 설정 · 업데이트</div>
+    <div class="g-section-sub">자주 쓰지 않는 기능은 설정창에 모았습니다</div>
+    <div class="g-mock">
+      <div class="g-mock-row"><b>사진 크기</b><span class="v">작게 / 보통 / 크게</span></div>
+      <div class="g-mock-row"><b>파일명 날짜</b><span class="v">뒤에 / 앞에 / 없음</span></div>
+      <div class="g-mock-row"><b>사용 안내 · 업데이트 내역</b><span class="v">다시 보기</span></div>
+      <div class="g-mock-row"><b>앱 버전 · 업데이트 확인</b><span class="v">최신 여부 확인</span></div>
+      <div class="g-mock-row"><b>사진 전체 삭제</b><span class="v">되돌릴 수 없음</span></div>
+    </div>
+    <div class="g-callout">🔔&nbsp;<span>새 버전이 나오면 화면 위쪽에 알림이 뜹니다. <b>지금 업데이트</b>를 누르고, 받은 파일을 열어 설치하면 사진·데이터는 그대로 유지됩니다. (APK 앱 전용)</span></div>
 
     <button onclick="closeGuide()" style="width:100%;padding:10px;border:none;border-radius:8px;background:#003399;color:#fff;font-weight:bold;font-size:14px;margin-top:16px;">닫기</button>
   </div>
