@@ -172,6 +172,7 @@ const CHANGELOG_LATEST = [
   { id: 51, text: "화면 좌우 여백을 없애 꽉 차게 표시, [APK 전용] 상단 상태바(시간·배터리 등)가 가려지지 않도록 수정" },
   { id: 52, text: "담당자 이름 입력칸을 ⚙️ 설정 창으로 이동 (메인 헤더에는 이름만 표시)" },
   { id: 53, text: "메인 화면의 '📖 사용법' 버튼과 버전 표시를 ⚙️ 설정 창으로 일원화 (화면이 더 깔끔해짐)" },
+  { id: 54, text: "⚙️ 설정의 앱 정보에 빌드 번호와 버전 번호를 함께 표시" },
 ];
 
 function showUpdateNotes(notes){
@@ -4112,7 +4113,7 @@ document.addEventListener("DOMContentLoaded",function(){
 
     <div style="font-size:12px;font-weight:700;color:#666;margin:14px 0 6px;">ℹ️ 앱 정보</div>
     <div style="display:flex;align-items:center;gap:8px;">
-      <div id="stVersion" style="flex:1;font-size:13px;color:#333;">버전 확인 중...</div>
+      <div id="stVersion" style="flex:1;font-size:13px;color:#333;white-space:pre-line;line-height:1.4;">버전 확인 중...</div>
       <button type="button" id="stUpdate" class="st-btn" style="padding:10px 12px;border:none;border-radius:10px;background:#0b5ed7;color:#fff;font-weight:700;font-size:13px;">업데이트 확인</button>
     </div>
 
@@ -4162,12 +4163,13 @@ document.addEventListener("DOMContentLoaded",function(){
     if (ex && window.__withDateTimeSuffix) ex.textContent = "예) " + window.__withDateTimeSuffix("공정파일.xlsx");
   }
   function versionText() {
+    const bd = document.getElementById("appVersionBadge");
+    const t = bd ? bd.textContent.trim().replace(/^버전\s*:?\s*/, "") : "";
+    const ver = (t && t.indexOf("확인") < 0) ? t : "";
     if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.APP_BUILD) {
-      return "앱 빌드 " + window.APP_BUILD;
+      return "앱 빌드 " + window.APP_BUILD + (ver ? "\n버전 " + ver : "");
     }
-    const b = document.getElementById("appVersionBadge");
-    const t = b ? b.textContent.trim().replace(/^버전\s*:?\s*/, "") : "";
-    return "웹 버전 " + t;
+    return "웹 버전 " + (t || "확인불가");
   }
   function openSettings() {
     paintSize();
