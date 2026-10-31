@@ -169,6 +169,7 @@ const CHANGELOG_LATEST = [
   { id: 48, text: "적용 시 'ENG번호' 시트에 해당 월 번호가 없으면 기존 Eng 번호가 빈 칸으로 지워지던 문제 수정 — 기존 값을 유지하고 안내 표시" },
   { id: 49, text: "[APK 전용] 새 버전 알림이 화면 위쪽에 표시되도록 변경" },
   { id: 50, text: "📖 사용 안내에 저장·공유·ZIP, 설정창, 업데이트 알림 설명 추가" },
+  { id: 51, text: "화면 좌우 여백을 없애 꽉 차게 표시, [APK 전용] 상단 상태바(시간·배터리 등)가 가려지지 않도록 수정" },
 ];
 
 function showUpdateNotes(notes){
@@ -456,8 +457,8 @@ html,body{
 
     <meta charset="UTF-8">
     <style>
-        body { font-family: 'Pretendard', sans-serif; background-color: #f4f6f9; display: flex; justify-content: center; padding: 20px; }
-        .app-container { width:100%; max-width:none; background: #ffffff; padding: 15px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        body { font-family: 'Pretendard', sans-serif; background-color: #ffffff; display: flex; justify-content: center; padding: 0; }
+        .app-container { width:100%; max-width:none; background: #ffffff; padding: 10px 10px 16px; border-radius: 0; box-shadow: none; }
         
         /* 헤더 */
         .header { background: #003399; color: white; padding: 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
