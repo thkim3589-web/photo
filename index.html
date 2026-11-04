@@ -173,6 +173,7 @@ const CHANGELOG_LATEST = [
   { id: 52, text: "담당자 이름 입력칸을 ⚙️ 설정 창으로 이동 (메인 헤더에는 이름만 표시)" },
   { id: 53, text: "메인 화면의 '📖 사용법' 버튼과 버전 표시를 ⚙️ 설정 창으로 일원화 (화면이 더 깔끔해짐)" },
   { id: 54, text: "⚙️ 설정의 앱 정보에 빌드 번호와 버전 번호를 함께 표시" },
+  { id: 55, text: "유실점검 시 불러온 수량에서 바뀐 항목이 없으면 공사/현행화·Eng 번호·작업 완료일을 건드리지 않고 점검 확인일만 기록 (Eng 번호 '없음' 알림도 점검만 할 때는 뜨지 않음)" },
 ];
 
 function showUpdateNotes(notes){
@@ -3267,6 +3268,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (window._applyLossLocationToUI) {
       window._applyLossLocationToUI(val ? String(val).trim() : "");
     }
+
+    // 불러온 시점의 공사 관련 수량을 기억해 둔다 (적용 때 "바뀐 게 있는지" 판단용)
+    const base = {};
+    ["oldNail","oldSticker","oldSignBoard","newNail","newSticker","crossing","signBoard","lacquer","depthNail","depthSticker","depthCrossing"].forEach((id) => { base[id] = Number(document.getElementById(id)?.value) || 0; });
+    window._loadedBaseline = { manageNo: (document.getElementById("manageNo")?.value || "").trim(), values: base };
   }
 
   // 관리번호에 해당하는 값이 없을 때(신규 관리번호) 화면 입력칸을 비운다
@@ -3282,6 +3288,7 @@ document.addEventListener("DOMContentLoaded", () => {
         el.dispatchEvent(new Event("change", { bubbles: true }));
       });
     if (window._resetLossLocationUI) window._resetLossLocationUI();
+    window._loadedBaseline = null;
   }
 
   // 관리번호 입력칸에서 포커스가 빠지거나 엔터를 치면, 이미 불러온 파일 안에서
@@ -3623,10 +3630,18 @@ document.addEventListener("DOMContentLoaded", () => {
         // ⚠️ 유실점검(보수)만 입력하고 기설/신설/심도부족/락카가 전부 0인 경우는
         //    "공사 후 3년 무상서비스" 성격의 점검일 뿐 작업 완료로 보지 않으므로,
         //    이 블록 전체를 건너뛰어 기존에 기록돼 있던 작업 완료일 등을 건드리지 않는다.
-        const hasConstructionWork =
+        const hasConstructionWorkRaw =
           oldNail > 0 || oldSticker > 0 || oldSignBoard > 0 ||
           newNail > 0 || newSticker > 0 || crossing > 0 || signBoard > 0 || lacquer > 0 ||
           depthNail > 0 || depthSticker > 0 || depthCrossing > 0;
+        // ⚠️ 엑셀에서 불러온 기존 수량이 화면에 채워져 있을 뿐, 이번에 바뀐 항목이 없으면
+        //    새 공사/현행화가 아니라 "점검만" 한 것이므로 공사 정보(구분·Eng·완료여부·완료일)를 건드리지 않는다.
+        const _workNow = { oldNail, oldSticker, oldSignBoard, newNail, newSticker, crossing, signBoard, lacquer, depthNail, depthSticker, depthCrossing };
+        const _bl = window._loadedBaseline;
+        const unchangedFromLoaded = !!(hasConstructionWorkRaw && _bl && _bl.manageNo === manageNo &&
+          Object.keys(_workNow).every((k) => (Number(_bl.values[k]) || 0) === _workNow[k]));
+        const hasConstructionWork = hasConstructionWorkRaw && !unchangedFromLoaded;
+        window._checkOnlyKept = unchangedFromLoaded;
         window._engNoMissingMonth = null;
         if (hasConstructionWork) {
           const workDate = new Date();
@@ -3712,6 +3727,12 @@ document.addEventListener("DOMContentLoaded", () => {
           });
         if (window._resetLossLocationUI) window._resetLossLocationUI();
         lastAutoLookupManageNo = null;
+        window._loadedBaseline = null;
+
+        if (window._checkOnlyKept) {
+          window._checkOnlyKept = false;
+          alert("유실점검만 기록했습니다.\n불러온 수량에서 바뀐 항목이 없어서 공사/현행화·Eng 번호·작업 완료일은 기존 값 그대로 두었습니다.");
+        }
 
         if (window._engNoMissingMonth) {
           const mm = window._engNoMissingMonth;
