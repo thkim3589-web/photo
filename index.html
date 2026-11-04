@@ -174,6 +174,7 @@ const CHANGELOG_LATEST = [
   { id: 53, text: "메인 화면의 '📖 사용법' 버튼과 버전 표시를 ⚙️ 설정 창으로 일원화 (화면이 더 깔끔해짐)" },
   { id: 54, text: "⚙️ 설정의 앱 정보에 빌드 번호와 버전 번호를 함께 표시" },
   { id: 55, text: "유실점검 시 불러온 수량에서 바뀐 항목이 없으면 공사/현행화·Eng 번호·작업 완료일을 건드리지 않고 점검 확인일만 기록 (Eng 번호 '없음' 알림도 점검만 할 때는 뜨지 않음)" },
+  { id: 56, text: "이미 완료된 건의 기존/신설/심도부족/락카 수량을 바꾸면 '값만 수정'과 '새 작업으로 기록' 중 선택 (값만 수정 시 공사/Eng/완료일 유지)" },
 ];
 
 function showUpdateNotes(notes){
@@ -3272,7 +3273,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // 불러온 시점의 공사 관련 수량을 기억해 둔다 (적용 때 "바뀐 게 있는지" 판단용)
     const base = {};
     ["oldNail","oldSticker","oldSignBoard","newNail","newSticker","crossing","signBoard","lacquer","depthNail","depthSticker","depthCrossing"].forEach((id) => { base[id] = Number(document.getElementById(id)?.value) || 0; });
-    window._loadedBaseline = { manageNo: (document.getElementById("manageNo")?.value || "").trim(), values: base };
+    const doneCol = headerMap["완료여부"];
+    const doneVal = doneCol ? getVal(doneCol) : null;
+    const done = !!(doneVal && String((doneVal && doneVal.richText) ? doneVal.richText.map(t => t.text).join("") : doneVal).trim());
+    window._loadedBaseline = { manageNo: (document.getElementById("manageNo")?.value || "").trim(), values: base, done: done };
   }
 
   // 관리번호에 해당하는 값이 없을 때(신규 관리번호) 화면 입력칸을 비운다
@@ -3525,6 +3529,41 @@ document.addEventListener("DOMContentLoaded", () => {
       const total = oldBox + newBox + lacquer + repairBox + depthBox;
       const dt = new Date().toLocaleString();
 
+      // 이미 "완료"된 건의 기존/신설/심도부족/락카 수량을 바꾼 경우: 오타 수정인지 새 작업인지 물어본다
+      const _applyDecision = window._applyDecision || null;
+      window._applyDecision = null;
+      {
+        const _bl0 = window._loadedBaseline;
+        const _cur0 = { oldNail, oldSticker, oldSignBoard, newNail, newSticker, crossing, signBoard, lacquer, depthNail, depthSticker, depthCrossing };
+        const _changed0 = !!(_bl0 && _bl0.manageNo === manageNo && Object.keys(_cur0).some((k) => (Number(_bl0.values[k]) || 0) !== _cur0[k]));
+        if (_bl0 && _bl0.done && _changed0 && !_applyDecision) {
+          const old = document.getElementById("applyModeOverlay");
+          if (old) old.remove();
+          const ov = document.createElement("div");
+          ov.id = "applyModeOverlay";
+          ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99996;display:flex;align-items:center;justify-content:center;";
+          ov.innerHTML =
+            '<div style="background:#fff;width:90%;max-width:360px;border-radius:16px;padding:18px 16px;box-shadow:0 10px 40px rgba(0,0,0,.35);">' +
+            '<div style="font-size:16px;font-weight:800;color:#0b3d91;margin-bottom:6px;">이미 완료된 건입니다</div>' +
+            '<div style="font-size:12.5px;color:#444;line-height:1.5;margin-bottom:12px;">자재 수량을 바꿨습니다. 어떻게 기록할까요?</div>' +
+            '<button id="amValue" style="width:100%;padding:12px;border:none;border-radius:10px;background:#0b5ed7;color:#fff;font-weight:800;font-size:14px;margin-bottom:6px;">✏️ 값만 수정<br><span style="font-weight:500;font-size:11px;">오타 정정 · 공사/Eng 번호/완료일은 그대로</span></button>' +
+            '<button id="amWork" style="width:100%;padding:12px;border:none;border-radius:10px;background:#eef0f3;color:#222;font-weight:800;font-size:14px;margin-bottom:6px;">🛠 새 작업으로 기록<br><span style="font-weight:500;font-size:11px;">공사/현행화·Eng 번호·완료일을 오늘 기준으로 기록</span></button>' +
+            '<button id="amCancel" style="width:100%;padding:10px;border:none;border-radius:10px;background:none;color:#888;font-size:13px;">취소</button>' +
+            '</div>';
+          document.body.appendChild(ov);
+          const finish = (mode) => {
+            ov.remove();
+            if (!mode) return;
+            window._applyDecision = mode;
+            document.getElementById("materialApplyBtn")?.click();
+          };
+          ov.querySelector("#amValue").addEventListener("click", () => finish("valueOnly"));
+          ov.querySelector("#amWork").addEventListener("click", () => finish("work"));
+          ov.querySelector("#amCancel").addEventListener("click", () => finish(null));
+          return;
+        }
+      }
+
       const fieldValues = { oldNail, oldSticker, oldSignBoard, newNail, newSticker, crossing, signBoard, lacquer, repairNail, repairSticker, repairCrossing, repairSignBoard, depthNail, depthSticker, depthCrossing };
 
       // 엑셀저장(사진 엑셀)이 초기화 이후에도 방금 적용한 값을 정확히 쓸 수 있도록
@@ -3640,8 +3679,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const _bl = window._loadedBaseline;
         const unchangedFromLoaded = !!(hasConstructionWorkRaw && _bl && _bl.manageNo === manageNo &&
           Object.keys(_workNow).every((k) => (Number(_bl.values[k]) || 0) === _workNow[k]));
-        const hasConstructionWork = hasConstructionWorkRaw && !unchangedFromLoaded;
+        const valueOnlyChosen = (_applyDecision === "valueOnly");
+        const hasConstructionWork = hasConstructionWorkRaw && !unchangedFromLoaded && !valueOnlyChosen;
         window._checkOnlyKept = unchangedFromLoaded;
+        window._valueOnlyKept = valueOnlyChosen && hasConstructionWorkRaw;
         window._engNoMissingMonth = null;
         if (hasConstructionWork) {
           const workDate = new Date();
@@ -3728,6 +3769,12 @@ document.addEventListener("DOMContentLoaded", () => {
         if (window._resetLossLocationUI) window._resetLossLocationUI();
         lastAutoLookupManageNo = null;
         window._loadedBaseline = null;
+
+        if (window._valueOnlyKept) {
+          window._valueOnlyKept = false;
+          window._checkOnlyKept = false;
+          alert("값만 수정했습니다.\n공사/현행화·Eng 번호·완료여부·작업 완료일은 기존 값 그대로 두었습니다.");
+        }
 
         if (window._checkOnlyKept) {
           window._checkOnlyKept = false;
