@@ -38,6 +38,8 @@ jobs:
         run: |
           mkdir -p www
           cp index.html www/index.html
+          # 외부 CDN 대신 저장소에 포함한 라이브러리를 앱에 함께 넣는다 (오프라인 동작 + 보안)
+          cp -r lib www/lib
           # 앱 안의 "새 버전 확인"이 비교할 빌드 번호를 주입
           sed -i "s/window.APP_BUILD = 0;/window.APP_BUILD = ${{ github.run_number }};/" www/index.html
           grep -c "window.APP_BUILD = ${{ github.run_number }};" www/index.html
@@ -55,6 +57,24 @@ jobs:
           cp native-patches/MainActivity.java "$PKG_DIR/MainActivity.java"
           cp native-patches/SaveFilePlugin.java "$PKG_DIR/SaveFilePlugin.java"
 
+      - name: Harden Android Build Settings
+        run: |
+          set -e
+          GRADLE="android/app/build.gradle"
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          # 1) 디버그 플래그 끄기 (USB 디버깅으로 앱 데이터 접근 방지)
+          sed -i '0,/buildTypes {/s//buildTypes {\n        debug {\n            debuggable false\n        }/' "$GRADLE"
+          # 2) 빌드마다 versionCode 증가
+          sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/" "$GRADLE"
+          sed -i "s/versionName \"1.0\"/versionName \"1.0.${{ github.run_number }}\"/" "$GRADLE"
+          # 3) 백업 허용 끄기, 평문 통신 금지
+          sed -i 's/android:allowBackup="true"/android:allowBackup="false"\n        android:usesCleartextTraffic="false"/' "$MANIFEST"
+          # 적용 확인 (하나라도 빠지면 빌드 실패)
+          grep -q "debuggable false" "$GRADLE"
+          grep -q "versionCode ${{ github.run_number }}" "$GRADLE"
+          grep -q 'android:allowBackup="false"' "$MANIFEST"
+          grep -q 'android:usesCleartextTraffic="false"' "$MANIFEST"
+
       - name: Apply App Icon
         run: |
           RES="android/app/src/main/res"
@@ -70,17 +90,28 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Sign APK with fixed key
+      - name: Sign APK with release key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -e
-          # 빌드마다 서명 키가 바뀌면 기존 앱 위에 덮어 설치가 안 되므로, 저장소의 고정 키로 서명한다
+          # 서명 키는 저장소가 아니라 GitHub Secrets에만 보관한다
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::서명용 비밀값(KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD)이 등록되지 않았습니다. Settings > Secrets and variables > Actions 에서 등록하세요."
+            exit 1
+          fi
           APKSIGNER=$(ls $ANDROID_HOME/build-tools/*/apksigner | sort -V | tail -1)
-          export KS_PASS=$(grep -m1 'Key store password:' signing-key-info.txt | sed 's/^[^:]*: *//' | tr -d '\r')
-          export KEY_PASS=$(grep -m1 'Key password:' signing-key-info.txt | sed 's/^[^:]*: *//' | tr -d '\r')
+          KS_FILE="$RUNNER_TEMP/release.keystore"
+          echo "$KEYSTORE_BASE64" | base64 -d > "$KS_FILE"
+          export KS_PASS="$KEYSTORE_PASSWORD" KEY_PASS="$KEY_PASSWORD"
           OUT=android/app/build/outputs/apk/debug
-          "$APKSIGNER" sign --ks signing.keystore --ks-key-alias my-key-alias \
+          "$APKSIGNER" sign --ks "$KS_FILE" --ks-key-alias "$KEY_ALIAS" \
             --ks-pass env:KS_PASS --key-pass env:KEY_PASS \
             --out $OUT/app-signed.apk $OUT/app-debug.apk
+          rm -f "$KS_FILE"
           "$APKSIGNER" verify --print-certs $OUT/app-signed.apk | head -3
 
       - name: Rename APK

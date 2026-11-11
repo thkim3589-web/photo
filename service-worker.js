@@ -35,7 +35,10 @@ function getCacheName() {
 const PRECACHE_URLS = [
   './',
   './index.html',
-  './manifest.json'
+  './manifest.json',
+  './lib/exceljs.min.js',
+  './lib/jszip.min.js',
+  './lib/FileSaver.min.js'
 ];
 
 // 설치: index.html 내용으로 캐시 이름을 정하고, 기본 파일을 저장
